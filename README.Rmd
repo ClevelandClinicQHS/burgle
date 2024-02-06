@@ -1,0 +1,175 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# burgle
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of burgle is to "steal" only the necessary parts of model objects.
+
+## Installation
+
+You can install the development version of burgle like so:
+
+``` {r, eval = FALSE}
+devtools::install_github("ClevelandClinicQHS/burgle")
+```
+
+## Pros of `burgle`
+
+ 1. The reduction in size can save on memory and storage space. Something that is sometimes in great demand since R works with local active memory.
+ 2. The removal of data from the model objects can allow them to be shared freely, if there are data sharing concerns or requirements.
+ 3. A streamline to simulate response for parameter uncertainty and probabilistic sampling
+
+
+## Linear Model Example
+
+```{r example}
+
+set.seed(287453)
+library(burgle)
+fit <- lm(Sepal.Length ~., data = iris)
+bfit <- burgle(fit)
+object.size(fit)
+object.size(bfit)
+
+as.numeric(object.size(bfit)/object.size(fit))*100
+```
+
+Our `burgle_lm` is roughly `r paste0(round(as.numeric(object.size(bfit)/object.size(fit))*100,2), "%")` the size of the original `lm` object, the iris dataset has `r nrow(iris)` observations and `r ncol(iris)` columns.
+
+Another example is the using the `nycflights13::flights` dataset. 
+
+```{r larger_example}
+fit2 <- lm(arr_delay ~ as.factor(month) + dep_delay + origin + distance + hour, data = nycflights13::flights)
+b_fit2 <- burgle(fit2)
+
+as.numeric(object.size(b_fit2)/object.size(fit2))*100
+```
+
+Our `burgle_lm` is roughly `r paste0(round(as.numeric(object.size(b_fit2)/object.size(fit2))*100,2), "%")` the size of the original `lm` object. This dataset has `r nrow(nycflights13::flights)` observations and our model has used 5 of the `r ncol(nycflights13::flights)` columns as predictors.
+
+## Prediction
+
+The new predict methods for our `burgle` objects allow for one to easily predict using `newdata`. 
+The structure is as follows:
+
+ * The rows are indexed by the original row order given in the `newdata`
+ * The columns are the different models (number of `draws` set to 1 by default)
+ * If more than one simulation is done, then the simulations are items in a list per model and row observation (number of `sims` set to 1 by default)
+
+## Predictions
+
+If one wants to predict using the original model simply set `original = TRUE`.
+
+Depending on the model object there are different types of predictions. By default it will return the linear predictor `(lp)`. If one wants to see the response, which makes more sense when looking at `glm` and survival models, one can set the `type = "response"`. The `se = FALSE` is an argument on whether to include the standard error of the model when simluating responses. `TRUE` means to use the model standard error. We recommend setting it to FALSE when doing more than one simulation or when setting `type = "response"`.
+```{r predictions}
+predict(bfit, newdata = head(iris), original = TRUE, draws = 1, se = FALSE, type = "lp")
+predict(bfit, newdata = head(iris), original = FALSE, draws = 5, type = "lp")
+## These two should be similar
+predict(bfit, newdata = head(iris), original = FALSE, draws = 5, se = TRUE, type = "response")
+predict(bfit, newdata = head(iris), original = FALSE, draws = 5, sims = 5, se = TRUE, type = "response")
+```
+
+
+## Generalized Linear Model
+
+The framework should work with all `glm` family options, just the binomial one is demonstrated below.
+```{r competiting risk}
+b_glm <- burgle(glm(I(Species == "versicolor") ~ ., family = "binomial", data = iris))
+
+predict(b_glm, head(iris), original = FALSE, se = TRUE, draws = 5, type = "lp")
+predict(b_glm, head(iris), original = FALSE, se = TRUE, draws = 5, type = "response")
+```
+
+## Cox Proporiontal Hazards Model
+```{r}
+library(survival)
+lung <- survival::lung
+lung$status <- lung$status - 1
+
+cox <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung)
+cox_sm <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung, x = FALSE, y = FALSE)
+
+b_cox <- burgle(cox)
+object.size(cox)
+object.size(cox_sm)
+object.size(b_cox)
+
+as.numeric(object.size(b_cox)/object.size(cox))*100
+as.numeric(object.size(b_cox)/object.size(cox_sm))*100
+```
+
+Our `burgle_coxph` model is `r paste0(round(as.numeric(object.size(b_cox)/object.size(cox_sm))*100,2), "%")` the size of the original Cox proportional hazards model even after setting `x=FALSE` and `y= FALSE`. The lung dataset has `r nrow(lung)` observations.
+
+One way to further reduce the size of the `burgle_coxph` is to reduce the number of unique time points in the data, since the it contains the baseline hazard of the model. The lung dataset as `r length(unique(lung$time))` unique values. If we were to round these to the nearest 14 days that would reduce the number of timepoints to `r length(unique(plyr::round_any(lung$time, 14)))`.
+
+```{r}
+lung$time2 <- plyr::round_any(lung$time, 14)
+cox2 <- coxph(Surv(time2, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung, x = TRUE, y = FALSE)
+b_cox2 <- burgle(cox2)
+
+object.size(cox2)
+object.size(b_cox2)
+as.numeric(object.size(b_cox2)/object.size(cox2))*100
+```
+
+This reduce the size to `r paste0(round(as.numeric(object.size(b_cox2)/object.size(cox2))*100,2), "%")` of the original `coxph` object.
+
+## Survival predictions
+
+Predictions are a slightly different structure if `type = "response"` or `"risk"`, since a time point is required. If `type = "response"` the returned results is a simulated 1 or 0 if the event has been experienced or not at a given time point. 
+The structure is as follows:
+ * The rows are indexed by the original row order given in `newdata`
+ * The columns are the different time points at which the risk is calculated
+ * The different elements of the lists are the different models (`draws`)
+ * If more than one simulation is done, then the different simulations are returned as list within the list element for each model (see below for an example example)
+```{r}
+predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "lp")
+predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = 500)
+predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = c(500, 1000))
+predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "response", times = c(500, 1000))
+predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type = "risk", times = c(500, 1000))
+
+```
+
+## Larger Example
+```{r}
+## The original model at time 500
+predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = c(500))
+
+## Doing 1000 simulations from the original model and calculating the death rate
+a0 <- predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, sims = 1000, type = "response", times = c(500)) |> purrr::list_flatten() |> Reduce(f = cbind, x = _) |> apply(1, mean)
+a0
+
+## Average survival death rate based on 1000 different models
+a1 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, type = "response", times = c(500)) |> purrr::list_flatten() |> Reduce(f = cbind, x = _) |> apply(1, mean)
+
+a1
+
+## Average survival rate based on 100 simlutions for each of the 1000 models
+a2 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, sims = 100, type = "response", times = c(500))
+
+### Average death per model
+a3 <- lapply(a2, function(x) apply(Reduce(cbind, x), 1, mean))
+
+a4 <- Reduce(rbind, a3)
+
+apply(a4, 2, median)
+```
+
+
+This structed has also been implemented for `riskRegression::CSC objects` and the plan is to incorportate `rstan` objects, and an overall default method and which will require a mean and covariance matrix as inputs.

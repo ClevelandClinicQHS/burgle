@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of burgle is to "steal" only the necessary parts of model objects.
+The goal of burgle is to "steal" only the necessary parts of model objects for applications in simuation.
 
 ## Installation
 
@@ -30,15 +30,14 @@ devtools::install_github("ClevelandClinicQHS/burgle")
 
 ## Pros of `burgle`
 
- 1. The reduction in size can save on memory and storage space. Something that is sometimes in great demand since R works with local active memory.
+ 1. The reduction in size can save on memory and storage space. A great advantage since R works with physical memory
  2. The removal of data from the model objects can allow them to be shared freely, if there are data sharing concerns or requirements.
- 3. A streamline to simulate response for parameter uncertainty and probabilistic sampling
+ 3. A streamlined method to simulate response for parameter uncertainty and probabilistic sampling
 
 
 ## Linear Model Example
 
 ```{r example}
-
 set.seed(287453)
 library(burgle)
 fit <- lm(Sepal.Length ~., data = iris)
@@ -62,32 +61,47 @@ as.numeric(object.size(b_fit2)/object.size(fit2))*100
 
 Our `burgle_lm` is roughly `r paste0(round(as.numeric(object.size(b_fit2)/object.size(fit2))*100,2), "%")` the size of the original `lm` object. This dataset has `r nrow(nycflights13::flights)` observations and our model has used 5 of the `r ncol(nycflights13::flights)` columns as predictors.
 
-## Prediction
+## Simulation Massive Example
 
-The new predict methods for our `burgle` objects allow for one to easily predict using `newdata`. 
-The structure is as follows:
+Here one can see a simulated dataset of 10 million data points with 3 random covariates.
 
- * The rows are indexed by the original row order given in the `newdata`
- * The columns are the different models (number of `draws` set to 1 by default)
- * If more than one simulation is done, then the simulations are items in a list per model and row observation (number of `sims` set to 1 by default)
+```{r massive example}
+N <- 1e7
+df <- data.frame(y = rnorm(N), x1 = runif(N), x2 = runif(N, -1, 1), x3 = runif(N, -2, 2))
+mfit <- lm(y~., data = df)
+b_mfit <- burgle(mfit)
+
+m0 <- object.size(mfit)
+print(m0, units = "Gb")
+object.size(b_mfit)
+```
+
+The `lm` is 2.7 Gb while the `burgle_lm` object is `r object.size(b_mfit)` bytes. A reduction of size by 10^6!
 
 ## Predictions
 
+The new predict methods for our `burgle` objects allow for one to easily predict new values and multiple simluated responses of `newdata`. 
+The structure is as follows:
+
+ * The rows are indexed by the original row order given in the `newdata`
+ * The columns are the different sets of sampled model parameters from the coefficients and covariance matrix of the original model (number of `draws` set to 1 by default)
+ * If more than one simulation is done, then the simulations are items in a list per model and row observation (number of `sims` set to 1 by default)
+
 If one wants to predict using the original model simply set `original = TRUE`.
 
-Depending on the model object there are different types of predictions. By default it will return the linear predictor `(lp)`. If one wants to see the response, which makes more sense when looking at `glm` and survival models, one can set the `type = "response"`. The `se = FALSE` is an argument on whether to include the standard error of the model when simluating responses. `TRUE` means to use the model standard error. We recommend setting it to FALSE when doing more than one simulation or when setting `type = "response"`.
+Depending on the model object there are different types of predictions. By default it will return the linear predictor `(lp)`. If one wants to see the response (`type = "response"`), which makes more sense when using `glm`objects and survival models. The `se = FALSE` is an argument on whether to include the standard error of the model when simluating responses. `TRUE` means to use the model standard error when sampling. We recommend setting it to TRUE when doing more than one simulation or when setting `type = "response"`.
+
 ```{r predictions}
 predict(bfit, newdata = head(iris), original = TRUE, draws = 1, se = FALSE, type = "lp")
 predict(bfit, newdata = head(iris), original = FALSE, draws = 5, type = "lp")
 ## These two should be similar
-predict(bfit, newdata = head(iris), original = FALSE, draws = 5, se = TRUE, type = "response")
 predict(bfit, newdata = head(iris), original = FALSE, draws = 5, sims = 5, se = TRUE, type = "response")
 ```
 
 
 ## Generalized Linear Model
 
-The framework should work with all `glm` family options, just the binomial one is demonstrated below.
+The framework should work with all `glm` family options, just the binomial example is demonstrated below.
 ```{r competiting risk}
 b_glm <- burgle(glm(I(Species == "versicolor") ~ ., family = "binomial", data = iris))
 
@@ -131,32 +145,39 @@ This reduce the size to `r paste0(round(as.numeric(object.size(b_cox2)/object.si
 
 ## Survival predictions
 
-Predictions are a slightly different structure if `type = "response"` or `"risk"`, since a time point is required. If `type = "response"` the returned results is a simulated 1 or 0 if the event has been experienced or not at a given time point. 
+Predictions are a slightly different structure for survival or longitudinal models if `type = "response"` or `"risk"`, since a time point is required. If `type = "response"` the returned results is a simulated 1 or 0 if the event has been experienced or not at a given time point(s). 
 The structure is as follows:
+
  * The rows are indexed by the original row order given in `newdata`
  * The columns are the different time points at which the risk is calculated
- * The different elements of the lists are the different models (`draws`)
- * If more than one simulation is done, then the different simulations are returned as list within the list element for each model (see below for an example example)
+ * The different elements of the lists are the different sampled model parameters (`draws`)
+ * If more than one simulation is done, then the different simulations are returned as lists within the list element for each model (see below for an example example)
 ```{r}
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "lp")
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = 500)
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = c(500, 1000))
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "response", times = c(500, 1000))
-predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type = "risk", times = c(500, 1000))
+predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type = "response", times = c(500, 1000))
 
 ```
 
-## Larger Example
+## Larger Simulation Example
 ```{r}
 ## The original model at time 500
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = c(500))
 
 ## Doing 1000 simulations from the original model and calculating the death rate
-a0 <- predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, sims = 1000, type = "response", times = c(500)) |> purrr::list_flatten() |> Reduce(f = cbind, x = _) |> apply(1, mean)
+a0 <- predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, sims = 1000, type = "response", times = c(500)) |> 
+  purrr::list_flatten() |>
+  Reduce(f = cbind, x = _) |> 
+  apply(1, mean)
 a0
 
 ## Average survival death rate based on 1000 different models
-a1 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, type = "response", times = c(500)) |> purrr::list_flatten() |> Reduce(f = cbind, x = _) |> apply(1, mean)
+a1 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, type = "response", times = c(500)) |> 
+  purrr::list_flatten() |> 
+  Reduce(f = cbind, x = _) |> 
+  apply(1, mean)
 
 a1
 
@@ -166,10 +187,11 @@ a2 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, sims 
 ### Average death per model
 a3 <- lapply(a2, function(x) apply(Reduce(cbind, x), 1, mean))
 
-a4 <- Reduce(rbind, a3)
+## Median death rate across 1000 models and 100 simulations for each model
+Reduce(rbind, a3) |> 
+  apply(2, median)
 
-apply(a4, 2, median)
 ```
 
 
-This structed has also been implemented for `riskRegression::CSC objects` and the plan is to incorportate `rstan` objects, and an overall default method and which will require a mean and covariance matrix as inputs.
+This structure has also been implemented for `riskRegression::CSC` objects and the plan is to incorporate `rstan` objects, and an overall `predict.burgle_default` method and which will only a mean and covariance matrix as inputs.

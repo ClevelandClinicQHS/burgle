@@ -4,7 +4,7 @@
 burgle.coxph <- function(object, ...){
   bh <- survival::basehaz(object, centered = FALSE)
   formula <- stats::reformulate(as.character(attr(object$terms, "predvars"))[-c(1:2)])
-  if(!is.null(object$strata)){
+  if(!is.null(object$strata)| grepl("strata", names(object$xlevels))){
     bh0 <- bh[, c("hazard", "strata")]
     bh <- bh[!duplicated(bh0),]
     ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]

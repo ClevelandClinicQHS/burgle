@@ -105,6 +105,8 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     vn <- length(str1_v)
     str1_ls <- strsplit(str1[[1]], ", ")
     new_xlvs <- lapply(seq_len(vn), function(y) unique(sapply(str1_ls, function(x) x[y])))
+    ## if strata is numeric, tends to have an '=' sign
+    new_xlvs <- lapply(new_xlvs, function(x) gsub(".*=", "", x))
     names(new_xlvs) <- str1_v
     xlvs <- append(o_xlvs, new_xlvs)
   }
@@ -147,28 +149,40 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     return(preds)
   }
 
-    bh <- object$basehaz
-    if(is.null(times)) stop("times is missing")
-    if(max(times) > max(bh$time)) warning(paste("times has a value of", max(times), "which is larger than the maximum time value of", max(bh$time)))
 
-    if(any(str_ck)){
-      str_s <- survival::strata(newdata[,names(new_xlvs)], shortlabel = TRUE)
 
-      nd_i <- lapply(levels(bh$strata), function(x) which(str_s == x))
-      nd_e <- sapply(nd_i, function(x) length(x)>0L)
+  bh <- object$basehaz
 
-      bh_tr <- lapply(times, function(x) bh[bh$time <= x,])
 
-      bh_str <- lapply(levels(bh$strata), function(x) Reduce(rbind, lapply(bh_tr, function(y) utils::tail(y[y$strata == x,], 1))))
+  if(is.null(times)) stop("times is missing")
+  if(max(times) > max(bh$time)) warning(paste("times has a value of", max(times), "which is larger than the maximum time value of", max(bh$time)))
 
-      nd_i <- nd_i[nd_e]
-      bh_str <- bh_str[nd_e]
+  if(any(str_ck)){
+    str_s <- survival::strata(newdata[,names(new_xlvs)], shortlabel = TRUE)
+    if(any(grepl("=", bh$strata))){
+      if(length(new_xlvs) == 1){bh$strata <- factor(gsub(".*=", "", bh$strata))}
+      else{bh$strata <- factor(paste0(sapply(regmatches(bh$strata, gregexpr("(?<==)(.*?)(?=,)", bh$strata, perl = TRUE)), paste, collapse = ", ")
+                  , ", ", gsub(".*=", "", bh$strata)))}
+    }
 
-      pr0 <- mapply(function(x, y) cbind(matrix(sapply(y$hazard, function(z) (1-exp(-z)^exp(preds[x,]))), ncol = length(times)
-                                                , dimnames = list(rep(x, ncol(preds)), times)
-      ), model = 1:(ncol(preds))), nd_i, bh_str)
+    nd_i <- lapply(levels(bh$strata), function(x) which(str_s == x))
+    nd_e <- sapply(nd_i, function(x) length(x)>0L)
 
-      pr0 <- Reduce(rbind, pr0)
+    bh_tr <- lapply(times, function(x) bh[bh$time <= x,])
+
+    bh_str <- lapply(levels(bh$strata), function(x) Reduce(rbind, lapply(bh_tr, function(y) utils::tail(y[y$strata == x,], 1))))
+
+    ## check for minimum time needs to be put here, just set hazard to 0
+    # bh_str <- lapply(bh_str)
+
+    nd_i <- nd_i[nd_e]
+    bh_str <- bh_str[nd_e]
+
+    pr0 <- mapply(function(x, y) cbind(matrix(sapply(y$hazard, function(z) (1-exp(-z)^exp(preds[x,]))), ncol = length(times)
+                                              , dimnames = list(rep(x, ncol(preds)), times)
+    ), model = 1:(ncol(preds))), nd_i, bh_str)
+
+    pr0 <- Reduce(rbind, pr0)
 
 
     }else{
@@ -205,8 +219,6 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
   # if(keep_models){return(list("preds" = preds, models = models))}
 
   pn
-
-
 
 }
 

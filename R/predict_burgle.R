@@ -131,13 +131,21 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
   if(original & draws >1){
     stop("Can only have one draw from the original model")
   }
+  o_coef <- object$coef
+  if(is.null(o_coef)){
+    o_coef <- 0L
+  }
   if(original){
-    models <- object$coef
+    models <- o_coef
   }else{
-    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
+    models <- MASS::mvrnorm(n = draws, mu = o_coef, Sigma = object$cov)
   }
 
-  mm <- matrix(stats::model.matrix(object$formula, data = newdata, xlev = o_xlvs)[,-1], nrow = nrow(newdata))
+  mm <- stats::model.matrix(object$formula, data = newdata, xlev = o_xlvs)
+  if(!is.integer(o_coef)){
+    mm <- matrix(mm[,-1], nrow = nrow(newdata))
+  }
+  # mm <- matrix(stats::model.matrix(object$formula, data = newdata, xlev = o_xlvs)[,-1], nrow = nrow(newdata))
 
   if(!is.null(dim(models))){
     preds <- apply(models, 1, function(x) mm %*% x)
@@ -173,7 +181,8 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     bh_str <- lapply(levels(bh$strata), function(x) Reduce(rbind, lapply(bh_tr, function(y) utils::tail(y[y$strata == x,], 1))))
 
     ## check for minimum time needs to be put here, just set hazard to 0
-    # bh_str <- lapply(bh_str)
+    bh_str <- mapply(function(x, y) if(nrow(x) < length(times)){return(rbind(data.frame(hazard = rep(0, length(times)-nrow(x)), time = -Inf, strata = y), x))}else{x}, bh_str, levels(bh$strata), SIMPLIFY = FALSE)
+    # return(bh_str)
 
     nd_i <- nd_i[nd_e]
     bh_str <- bh_str[nd_e]
@@ -188,6 +197,9 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     }else{
 
       bh_tr <- Reduce(rbind, lapply(times, function(x) utils::tail(bh[bh$time <= x,], 1)))
+      if(nrow(bh_tr) < length(times)){
+        bh_tr <- rbind(data.frame(hazard = rep(0, length(times)-nrow(bh_tr)), time = -Inf), bh_tr)
+      }
 
       pr0 <- cbind(matrix(sapply(bh_tr$hazard, function(z) (1-exp(-z)^exp(preds))),
                           ncol = length(times),
@@ -276,13 +288,25 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
   if(original & draws > 1){
     stop("Can only have one draw from the original model")
   }
+  o_coef <- object$coef
+  no_coef <- sapply(o_coef, is.null)
+  if(any(no_coef)){
+    o_coef[no_coef] <- 0L
+  }
+
   if(original){
-    models <- object$coef
+    models <- o_coef
   }else{
-    models <- lapply(1:nMods, function(x) MASS::mvrnorm(n = draws, mu = object$coef[[x]], Sigma = object$cov[[x]]))
+    models <- lapply(1:nMods, function(x) MASS::mvrnorm(n = draws, mu = o_coef[[x]], Sigma = object$cov[[x]]))
   }
   ## add to something if only one covariate
-  mms <- lapply(1:nMods, function(x) matrix(stats::model.matrix(object$formula[[x]], data = newdata, xlev = o_xlvs[[x]])[,-1], nrow = nrow(newdata)))
+  mms <- lapply(1:nMods, function(x) stats::model.matrix(object$formula[[x]], data = newdata, xlev = o_xlvs[[x]]))
+  if(any(!no_coef)){
+    mms[!no_coef] <- lapply(mms[!no_coef], function(x) matrix(x[,-1] , nrow = nrow(newdata)))
+  }
+
+  # mms <- lapply(1:nMods, function(x) matrix(stats::model.matrix(object$formula[[x]], data = newdata, xlev = o_xlvs[[x]])[,-1], nrow = nrow(newdata)))
+
 
   preds <- mapply(function(x, y){
     if(!is.null(dim(x))){

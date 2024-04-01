@@ -11,7 +11,9 @@ burgle.coxph <- function(object, ...){
     formula <- stats::reformulate(ft)
   }
   ## or no other coefficients
+
   if(!is.null(object$xlevels) && (!is.null(object$strata)| any(grepl("strata", names(object$xlevels))))){
+
     bh0 <- bh[, c("hazard", "strata")]
     bh <- bh[!duplicated(bh0),]
     ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]

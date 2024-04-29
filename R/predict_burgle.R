@@ -16,7 +16,7 @@
 #'
 predict.burgle_lm <- function(object, newdata, original = FALSE, draws = 1, sims = 1, type = "lp", se = FALSE, ...){
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
-  type <- match.arg(tolower(type), c("lp", "response"))
+  type <- match.arg(tolower(type), c("lp", "response", "link"))
   nl <- names(object$xlevels)
   ck0 <- nl %in% colnames(newdata)
   if(!all(ck0)) stop(paste(nl[!ck0], "is not present in newdata"))
@@ -74,8 +74,8 @@ predict.burgle_lm <- function(object, newdata, original = FALSE, draws = 1, sims
 predict.burgle_glm <- function(object, newdata, original = FALSE, draws = 1, sims = 1, type = "lp", se = FALSE, ...){
   preds <- predict.burgle_lm(object, newdata = newdata, original = original, draws = draws, sims = 1, type = "lp", se = FALSE,  ... = ...)
   preds <- replicate(sims,
-                  apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
-                  simplify = FALSE)
+                     apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
+                     simplify = FALSE)
   if(length(preds) == 1L){
     preds <- preds[[1]]
   }
@@ -99,6 +99,7 @@ predict.burgle_glm <- function(object, newdata, original = FALSE, draws = 1, sim
                    function(y) apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)))
     }
   }
+
   pn
 
 }

@@ -76,7 +76,7 @@
 
 \item{sims}{how many simulated response to draw}
 
-\item{type}{either 'lp', 'response' or 'risk' if time dependent}
+\item{type}{either 'lp', 'response', 'link' for glm or 'risk' if time dependent}
 
 \item{times}{if type = "risk" time for which to predict risk, if times and sims is multiple the return will be lists within lists}
 

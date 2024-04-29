@@ -7,7 +7,7 @@
 #' @param original whether or not to predict using the original model
 #' @param draws how many different models to simulate
 #' @param sims how many simulated response to draw
-#' @param type either 'lp', 'response' or 'risk' if time dependent
+#' @param type either 'lp', 'response', 'link' for glm or 'risk' if time dependent
 #' @param se whether or not to include the standard error in the simulations
 #' @param ... for future methods
 #'
@@ -72,15 +72,34 @@ predict.burgle_lm <- function(object, newdata, original = FALSE, draws = 1, sims
 #'
 #' @export
 predict.burgle_glm <- function(object, newdata, original = FALSE, draws = 1, sims = 1, type = "lp", se = FALSE, ...){
-  preds <- predict.burgle_lm(object, newdata = newdata, original = original, draws = draws, sims = sims, type = type, se = se,  ... = ...)
-  if(type == "response"){
-    if(is.null(dim(preds))){
-      preds <-  lapply(preds, object$inv_link)
-    }else{
+  preds <- predict.burgle_lm(object, newdata = newdata, original = original, draws = draws, sims = 1, type = "lp", se = FALSE,  ... = ...)
+  preds <- replicate(sims,
+                  apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
+                  simplify = FALSE)
+  if(length(preds) == 1L){
+    preds <- preds[[1]]
+  }
+  if(type == "lp"){
+    return(preds)
+  }
+  if(is.null(dim(preds))){
+    preds <-  lapply(preds, object$inv_link)
+  }else{
     preds <- object$inv_link(preds)
+  }
+  if(type == "link"){
+    return(preds)
+  }
+  if(type == "response"){
+    if(!grepl("binomial", object$family)) stop("please use type = 'link' for model families other than binomial and quasibinomial")
+    if(!is.null(dim(preds))){
+      pn <- apply(preds, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x))
+    }else{
+      pn <- lapply(preds,
+                   function(y) apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)))
     }
   }
-  preds
+  pn
 
 }
 

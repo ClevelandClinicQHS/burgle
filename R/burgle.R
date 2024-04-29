@@ -57,6 +57,8 @@ burgle.glm <- function(object, ...){
 
   formula <- stats::reformulate(as.character(attr(object$terms, "predvars"))[-c(1:2)])
 
+  family <- object$family$family
+
   inv_link <- object$family$linkinv
 
   l <- list("coef" = coef,
@@ -64,6 +66,7 @@ burgle.glm <- function(object, ...){
             "rss" = rss,
             "xlevels" = xlevels,
             "formula" = formula,
+            "family" = family,
             "inv_link" = inv_link)
 
   class(l) <- "burgle_glm"

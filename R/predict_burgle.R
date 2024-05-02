@@ -337,8 +337,12 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
     p1
   }, models, mms, SIMPLIFY = TRUE)
 
+  if(nrow(newdata) == 1L & draws == 1L){preds <- matrix(preds, nrow = 1)}
+
   if(nrow(preds) > nrow(newdata)){
-    preds <- mapply(function(x, y) preds[c(x:y), ], (nrow(newdata) * 1:draws)-draws, (nrow(newdata) *1:draws), SIMPLIFY = FALSE)
+    ov <- (nrow(newdata) * 1:draws)-draws
+    if(length(ov == 1L)){ov <- 1}
+    preds <- mapply(function(x, y) preds[c(x:y), ], ov, (nrow(newdata) *1:draws), SIMPLIFY = FALSE)
   }
   if(type == "lp"){
     return(preds)

@@ -233,6 +233,7 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:length(times)], ncol = length(times)))
 
     if(type == "risk"){
+      if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
       return(pr0)
     }
 

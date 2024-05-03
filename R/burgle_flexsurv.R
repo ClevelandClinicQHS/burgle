@@ -6,10 +6,12 @@ burgle.flexsurvreg <- function(object, ...){
   coef <- stats::coef(object)
   ft <- as.character(attr(object$covdata$terms, "predvars"))[-c(1:2)]
   if (length(ft) < 1) {
-    formula <- stats::formula(paste0("~1"))
+    # formula <- stats::formula(paste0("~1"))
+    formula <- "1"
   }
   else {
-    formula <- stats::reformulate(ft)
+    # formula <- stats::reformulate(ft)
+    formula <- ft
   }
   if (length(coef) == 0L) {
     cov <- matrix(0)
@@ -88,7 +90,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = FALSE, d
     }
   }
 
-  mm <- stats::model.matrix(object$formula, data = newdata,
+  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata,
                             xlev = object$xlevels)[,-1]
 
   if (!is.null(dim(models))) {

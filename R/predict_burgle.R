@@ -43,7 +43,7 @@ predict.burgle_lm <- function(object, newdata, original = FALSE, draws = 1, sims
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }
 
-  mm <- stats::model.matrix(object$formula, data = newdata, xlev = object$xlevels)
+  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = object$xlevels)
 
   if(!is.null(dim(models))){
     preds <- apply(models, 1, function(x) mm %*% x)
@@ -161,7 +161,7 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     models <- MASS::mvrnorm(n = draws, mu = o_coef, Sigma = object$cov)
   }
 
-  mm <- stats::model.matrix(object$formula, data = newdata, xlev = o_xlvs)
+  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = o_xlvs)
   if(!is.integer(o_coef)){
     mm <- matrix(mm[,-1], nrow = nrow(newdata))
   }
@@ -321,7 +321,7 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
     models <- lapply(1:nMods, function(x) MASS::mvrnorm(n = draws, mu = o_coef[[x]], Sigma = object$cov[[x]]))
   }
   ## add to something if only one covariate
-  mms <- lapply(1:nMods, function(x) stats::model.matrix(object$formula[[x]], data = newdata, xlev = o_xlvs[[x]]))
+  mms <- lapply(1:nMods, function(x) stats::model.matrix(stats::reformulate(object$formula[[x]]), data = newdata, xlev = o_xlvs[[x]]))
   if(any(!no_coef)){
     mms[!no_coef] <- lapply(mms[!no_coef], function(x) matrix(x[,-1] , nrow = nrow(newdata)))
   }

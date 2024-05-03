@@ -33,16 +33,16 @@ set.seed(287453)
 library(burgle)
 fit <- lm(Sepal.Length ~., data = iris)
 bfit <- burgle(fit)
-object.size(fit)
-#> 68776 bytes
-object.size(bfit)
-#> 5296 bytes
+pryr::object_size(fit)
+#> 39.43 kB
+pryr::object_size(bfit)
+#> 2.88 kB
 
-as.numeric(object.size(bfit)/object.size(fit))*100
-#> [1] 7.700361
+as.numeric(pryr::object_size(bfit)/pryr::object_size(fit))*100
+#> [1] 7.303713
 ```
 
-Our `burgle_lm` is roughly 7.7% the size of the original `lm` object,
+Our `burgle_lm` is roughly 7.3% the size of the original `lm` object,
 the iris dataset has 150 observations and 5 columns.
 
 Another example is the using the `nycflights13::flights` dataset.
@@ -51,8 +51,8 @@ Another example is the using the `nycflights13::flights` dataset.
 fit2 <- lm(arr_delay ~ as.factor(month) + dep_delay + origin + distance + hour, data = nycflights13::flights)
 b_fit2 <- burgle(fit2)
 
-as.numeric(object.size(b_fit2)/object.size(fit2))*100
-#> [1] 0.008576956
+as.numeric(pryr::object_size(b_fit2)/pryr::object_size(fit2))*100
+#> [1] 0.008213793
 ```
 
 Our `burgle_lm` is roughly 0.01% the size of the original `lm` object.
@@ -70,14 +70,14 @@ df <- data.frame(y = rnorm(N), x1 = runif(N), x2 = runif(N, -1, 1), x3 = runif(N
 mfit <- lm(y~., data = df)
 b_mfit <- burgle(mfit)
 
-m0 <- object.size(mfit)
+m0 <- pryr::object_size(mfit)
 print(m0, units = "Gb")
-#> 2.7 Gb
-object.size(b_mfit)
-#> 3904 bytes
+#> 1.60 GB
+pryr::object_size(b_mfit)
+#> 2.15 kB
 ```
 
-The `lm` is 2.7 Gb while the `burgle_lm` object is 3904 bytes. A
+The `lm` is 1.6 Gb while the `burgle_lm` object is 2152 bytes. A
 reduction of size by 10^6!
 
 ## Predictions
@@ -181,21 +181,20 @@ b_glm <- burgle(glm(I(Species == "versicolor") ~ ., family = "binomial", data = 
 
 predict(b_glm, head(iris), original = FALSE, se = TRUE, draws = 5, type = "lp")
 #>            [,1]       [,2]       [,3]      [,4]      [,5]
-#> [1,] -1.1098579 -1.7593848 -2.5685525 -2.601748 -2.562767
-#> [2,]  0.1578511 -0.3021229 -0.8040506 -1.328403 -1.929431
-#> [3,] -0.5689896 -1.1603217 -1.3894045 -1.702297 -1.972988
-#> [4,] -0.2104957 -0.8643440 -0.7502806 -1.055111 -1.108040
-#> [5,] -1.4389459 -2.1741417 -2.8024264 -2.706615 -2.427988
-#> [6,] -2.4149462 -3.1050445 -4.1588607 -3.747177 -3.341297
+#> [1,]  1.1931513  0.8544506 -0.9125312 -4.449063 -5.371412
+#> [2,]  2.2506299  1.8325844 -1.2188106 -2.859110 -5.147537
+#> [3,] -1.2826411  1.7282266 -2.2889517 -2.672046 -3.255157
+#> [4,] -0.5582609  0.2016295 -3.3602143 -2.508221 -1.622880
+#> [5,] -2.6288233 -4.6355719 -2.9090909 -2.429126 -2.970703
+#> [6,]  1.1098697 -5.8229683 -2.4733745 -3.157545 -6.473457
 predict(b_glm, head(iris), original = FALSE, se = TRUE, draws = 5, type = "response")
-#> [[1]]
-#>             [,1]        [,2]         [,3]        [,4]        [,5]
-#> [1,] 0.004840871 0.010866283 0.0005145205 0.023476256 0.212919675
-#> [2,] 0.106117033 0.036798302 0.0348380521 0.001290766 0.006266509
-#> [3,] 0.156751980 0.403950508 0.0087271689 0.044963128 0.290545353
-#> [4,] 0.287271643 0.076185702 0.5766301030 0.678542740 0.221914212
-#> [5,] 0.005046290 0.003568772 0.0117201865 0.806776452 0.008884473
-#> [6,] 0.002935466 0.018600794 0.0128592570 0.084119986 0.005507685
+#>      [,1] [,2] [,3] [,4] [,5]
+#> [1,]    0    1    0    0    1
+#> [2,]    0    1    0    0    1
+#> [3,]    1    0    0    0    1
+#> [4,]    0    1    0    0    0
+#> [5,]    1    0    0    0    0
+#> [6,]    0    0    0    0    0
 ```
 
 ## Cox Proporiontal Hazards Model
@@ -209,20 +208,20 @@ cox <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, da
 cox_sm <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung, x = FALSE, y = FALSE)
 
 b_cox <- burgle(cox)
-object.size(cox)
-#> 56400 bytes
-object.size(cox_sm)
-#> 37760 bytes
-object.size(b_cox)
-#> 8184 bytes
+pryr::object_size(cox)
+#> 36.02 kB
+pryr::object_size(cox_sm)
+#> 31.21 kB
+pryr::object_size(b_cox)
+#> 5.59 kB
 
-as.numeric(object.size(b_cox)/object.size(cox))*100
-#> [1] 14.51064
-as.numeric(object.size(b_cox)/object.size(cox_sm))*100
-#> [1] 21.67373
+as.numeric(pryr::object_size(b_cox)/pryr::object_size(cox))*100
+#> [1] 15.52643
+as.numeric(pryr::object_size(b_cox)/pryr::object_size(cox_sm))*100
+#> [1] 17.91848
 ```
 
-Our `burgle_coxph` model is 21.67% the size of the original Cox
+Our `burgle_coxph` model is 17.92% the size of the original Cox
 proportional hazards model even after setting `x=FALSE` and `y= FALSE`.
 The lung dataset has 228 observations.
 
@@ -237,15 +236,15 @@ lung$time2 <- plyr::round_any(lung$time, 14)
 cox2 <- coxph(Surv(time2, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung, x = TRUE, y = FALSE)
 b_cox2 <- burgle(cox2)
 
-object.size(cox2)
-#> 62048 bytes
-object.size(b_cox2)
-#> 6464 bytes
-as.numeric(object.size(b_cox2)/object.size(cox2))*100
-#> [1] 10.41774
+pryr::object_size(cox2)
+#> 42.50 kB
+pryr::object_size(b_cox2)
+#> 3.87 kB
+as.numeric(pryr::object_size(b_cox2)/pryr::object_size(cox2))*100
+#> [1] 9.109731
 ```
 
-This reduce the size to 10.42% of the original `coxph` object.
+This reduce the size to 9.11% of the original `coxph` object.
 
 ## Survival predictions
 
@@ -274,7 +273,6 @@ predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "lp")
 #> [5,] 0.7967660
 #> [6,] 0.8301417
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = 500)
-#> [[1]]
 #>           [,1]
 #> [1,] 0.8051989
 #> [2,] 0.6171886
@@ -285,7 +283,6 @@ predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", 
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = c(500, 1000))
 #> Warning in predict.burgle_coxph(b_cox, newdata = head(lung), original = TRUE, :
 #> times has a value of 1000 which is larger than the maximum time value of 883
-#> [[1]]
 #>           [,1]      [,2]
 #> [1,] 0.8051989 0.9851588
 #> [2,] 0.6171886 0.9155426
@@ -299,12 +296,12 @@ predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "respons
 #> [[1]]
 #> [[1]][[1]]
 #>      [,1] [,2]
-#> [1,]    0    1
-#> [2,]    1    1
-#> [3,]    0    1
+#> [1,]    1    1
+#> [2,]    0    1
+#> [3,]    1    1
 #> [4,]    1    1
 #> [5,]    1    1
-#> [6,]    0    1
+#> [6,]    1    1
 predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type = "response", times = c(500, 1000))
 #> Warning in predict.burgle_coxph(b_cox, newdata = head(lung), original = FALSE,
 #> : times has a value of 1000 which is larger than the maximum time value of 883
@@ -313,19 +310,19 @@ predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type
 #>      [,1] [,2]
 #> [1,]    1    1
 #> [2,]    1    1
-#> [3,]    0    1
+#> [3,]    1    1
 #> [4,]    1    1
-#> [5,]    1    1
+#> [5,]    0    1
 #> [6,]    1    1
 #> 
 #> [[1]][[2]]
 #>      [,1] [,2]
 #> [1,]    1    1
 #> [2,]    1    1
-#> [3,]    1    1
+#> [3,]    0    1
 #> [4,]    1    1
 #> [5,]    1    1
-#> [6,]    1    1
+#> [6,]    0    1
 #> 
 #> 
 #> [[2]]
@@ -333,7 +330,7 @@ predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type
 #>      [,1] [,2]
 #> [1,]    1    1
 #> [2,]    1    1
-#> [3,]    1    1
+#> [3,]    0    0
 #> [4,]    1    1
 #> [5,]    1    1
 #> [6,]    1    1
@@ -362,16 +359,16 @@ predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type
 #>      [,1] [,2]
 #> [1,]    1    1
 #> [2,]    1    1
-#> [3,]    1    0
+#> [3,]    1    1
 #> [4,]    1    1
 #> [5,]    1    1
-#> [6,]    0    1
+#> [6,]    1    1
 #> 
 #> 
 #> [[4]]
 #> [[4]][[1]]
 #>      [,1] [,2]
-#> [1,]    0    1
+#> [1,]    1    1
 #> [2,]    1    1
 #> [3,]    1    1
 #> [4,]    1    1
@@ -391,20 +388,20 @@ predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type
 #> [[5]]
 #> [[5]][[1]]
 #>      [,1] [,2]
-#> [1,]    0    0
-#> [2,]    0    0
-#> [3,]    0    1
-#> [4,]    0    1
-#> [5,]    0    0
-#> [6,]    0    0
+#> [1,]    1    1
+#> [2,]    1    1
+#> [3,]    1    1
+#> [4,]    1    1
+#> [5,]    0    1
+#> [6,]    1    1
 #> 
 #> [[5]][[2]]
 #>      [,1] [,2]
-#> [1,]    0    1
-#> [2,]    0    0
-#> [3,]    0    1
-#> [4,]    0    1
-#> [5,]    0    0
+#> [1,]    1    1
+#> [2,]    1    1
+#> [3,]    1    1
+#> [4,]    1    1
+#> [5,]    0    1
 #> [6,]    1    1
 ```
 
@@ -413,7 +410,6 @@ predict(b_cox, newdata = head(lung), original = FALSE, draws = 5, sims = 2, type
 ``` r
 ## The original model at time 500
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", times = c(500))
-#> [[1]]
 #>           [,1]
 #> [1,] 0.8051989
 #> [2,] 0.6171886
@@ -428,7 +424,7 @@ a0 <- predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, sims = 10
   Reduce(f = cbind, x = _) |> 
   apply(1, mean)
 a0
-#> [1] 0.829 0.608 0.552 0.861 0.660 0.636
+#> [1] 0.829 0.610 0.553 0.862 0.661 0.635
 
 ## Average survival death rate based on 1000 different models
 a1 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, type = "response", times = c(500)) |> 
@@ -437,7 +433,7 @@ a1 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, type 
   apply(1, mean)
 
 a1
-#> [1] 0.701 0.588 0.590 0.747 0.591 0.612
+#> [1] 0.705 0.579 0.573 0.758 0.603 0.610
 
 ## Average survival rate based on 100 simlutions for each of the 1000 models
 a2 <- predict(b_cox, newdata = head(lung), original = FALSE, draws = 1000, sims = 100, type = "response", times = c(500))
@@ -448,7 +444,7 @@ a3 <- lapply(a2, function(x) apply(Reduce(cbind, x), 1, mean))
 ## Median death rate across 1000 models and 100 simulations for each model
 Reduce(rbind, a3) |> 
   apply(2, median)
-#> [1] 0.810 0.620 0.580 0.870 0.660 0.665
+#> [1] 0.810 0.625 0.570 0.870 0.645 0.660
 ```
 
 This structure has also been implemented for `riskRegression::CSC`

@@ -6,9 +6,11 @@ burgle.coxph <- function(object, ...){
   ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
   ## intercept only model
   if(length(ft)<1){
-    formula <- stats::formula(paste0("~1"))
+    # formula <- stats::formula(paste0("~1"))
+    formula <- "1"
   }else{
-    formula <- stats::reformulate(ft)
+    # formula <- stats::reformulate(ft)
+    formula <- ft
   }
   ## or no other coefficients
 
@@ -19,9 +21,11 @@ burgle.coxph <- function(object, ...){
     ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
     ft2 <- ft[!grepl("strata", ft)]
     if(length(ft2)<1){
-      formula <- stats::formula(paste0("~1"))
+      # formula <- stats::formula(paste0("~1"))
+      formula <- "1"
     }else{
-      formula <- stats::reformulate(ft2)
+      # formula <- stats::reformulate(ft2)
+      formula <- ft2
     }
   }else{
     bh <- bh[!duplicated(bh$hazard),]
@@ -71,16 +75,20 @@ burgle.CauseSpecificCox <- function(object, ...){
     ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
     # f1 <- stats::reformulate(ft)
     if(length(ft) <1){
-      return(stats::formula(paste0("~1")))
+      # return(stats::formula(paste0("~1")))
+      return("1")
     }
-    f1 <- stats::reformulate(ft)
+    # f1 <- stats::reformulate(ft)
+    f1 <- ft
     if(!is.null(x$strata)){
       ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
       ft2 <- ft[!grepl("strata", ft)]
       if(length(ft2) <1){
-        return(stats::formula(paste0("~1")))
+        # return(stats::formula(paste0("~1")))
+        return("1")
       }
-      f1 <- stats::reformulate(ft2)
+      # f1 <- stats::reformulate(ft2)
+      f1 <- ft2
     }
     f1
   })

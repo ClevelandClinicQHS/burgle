@@ -28,7 +28,8 @@ burgle.lm <- function(object, ...){
   cov <- stats::vcov(object)
   rss <- sum(object$residuals ^2)/object$df.residual
   xlevels <- object$xlevels
-  formula <- stats::reformulate(as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  # formula <- stats::reformulate(as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
 
   l <- list("coef" = coef,
             "cov" = cov,
@@ -55,7 +56,8 @@ burgle.glm <- function(object, ...){
 
   xlevels <- object$xlevels
 
-  formula <- stats::reformulate(as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  # formula <- stats::reformulate(as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
 
   family <- object$family$family
 

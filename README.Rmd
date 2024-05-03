@@ -42,13 +42,13 @@ set.seed(287453)
 library(burgle)
 fit <- lm(Sepal.Length ~., data = iris)
 bfit <- burgle(fit)
-object.size(fit)
-object.size(bfit)
+pryr::object_size(fit)
+pryr::object_size(bfit)
 
-as.numeric(object.size(bfit)/object.size(fit))*100
+as.numeric(pryr::object_size(bfit)/pryr::object_size(fit))*100
 ```
 
-Our `burgle_lm` is roughly `r paste0(round(as.numeric(object.size(bfit)/object.size(fit))*100,2), "%")` the size of the original `lm` object, the iris dataset has `r nrow(iris)` observations and `r ncol(iris)` columns.
+Our `burgle_lm` is roughly `r paste0(round(as.numeric(pryr::object_size(bfit)/pryr::object_size(fit))*100,2), "%")` the size of the original `lm` object, the iris dataset has `r nrow(iris)` observations and `r ncol(iris)` columns.
 
 Another example is the using the `nycflights13::flights` dataset. 
 
@@ -56,10 +56,10 @@ Another example is the using the `nycflights13::flights` dataset.
 fit2 <- lm(arr_delay ~ as.factor(month) + dep_delay + origin + distance + hour, data = nycflights13::flights)
 b_fit2 <- burgle(fit2)
 
-as.numeric(object.size(b_fit2)/object.size(fit2))*100
+as.numeric(pryr::object_size(b_fit2)/pryr::object_size(fit2))*100
 ```
 
-Our `burgle_lm` is roughly `r paste0(round(as.numeric(object.size(b_fit2)/object.size(fit2))*100,2), "%")` the size of the original `lm` object. This dataset has `r nrow(nycflights13::flights)` observations and our model has used 5 of the `r ncol(nycflights13::flights)` columns as predictors.
+Our `burgle_lm` is roughly `r paste0(round(as.numeric(pryr::object_size(b_fit2)/pryr::object_size(fit2))*100,2), "%")` the size of the original `lm` object. This dataset has `r nrow(nycflights13::flights)` observations and our model has used 5 of the `r ncol(nycflights13::flights)` columns as predictors.
 
 ## Simulation Massive Example
 
@@ -71,12 +71,12 @@ df <- data.frame(y = rnorm(N), x1 = runif(N), x2 = runif(N, -1, 1), x3 = runif(N
 mfit <- lm(y~., data = df)
 b_mfit <- burgle(mfit)
 
-m0 <- object.size(mfit)
+m0 <- pryr::object_size(mfit)
 print(m0, units = "Gb")
-object.size(b_mfit)
+pryr::object_size(b_mfit)
 ```
 
-The `lm` is 2.7 Gb while the `burgle_lm` object is `r object.size(b_mfit)` bytes. A reduction of size by 10^6!
+The `lm` is 1.6 Gb while the `burgle_lm` object is `r pryr::object_size(b_mfit)` bytes. A reduction of size by 10^6!
 
 ## Predictions
 
@@ -119,15 +119,15 @@ cox <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, da
 cox_sm <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung, x = FALSE, y = FALSE)
 
 b_cox <- burgle(cox)
-object.size(cox)
-object.size(cox_sm)
-object.size(b_cox)
+pryr::object_size(cox)
+pryr::object_size(cox_sm)
+pryr::object_size(b_cox)
 
-as.numeric(object.size(b_cox)/object.size(cox))*100
-as.numeric(object.size(b_cox)/object.size(cox_sm))*100
+as.numeric(pryr::object_size(b_cox)/pryr::object_size(cox))*100
+as.numeric(pryr::object_size(b_cox)/pryr::object_size(cox_sm))*100
 ```
 
-Our `burgle_coxph` model is `r paste0(round(as.numeric(object.size(b_cox)/object.size(cox_sm))*100,2), "%")` the size of the original Cox proportional hazards model even after setting `x=FALSE` and `y= FALSE`. The lung dataset has `r nrow(lung)` observations.
+Our `burgle_coxph` model is `r paste0(round(as.numeric(pryr::object_size(b_cox)/pryr::object_size(cox_sm))*100,2), "%")` the size of the original Cox proportional hazards model even after setting `x=FALSE` and `y= FALSE`. The lung dataset has `r nrow(lung)` observations.
 
 One way to further reduce the size of the `burgle_coxph` is to reduce the number of unique time points in the data, since the it contains the baseline hazard of the model. The lung dataset as `r length(unique(lung$time))` unique values. If we were to round these to the nearest 14 days that would reduce the number of timepoints to `r length(unique(plyr::round_any(lung$time, 14)))`.
 
@@ -136,12 +136,12 @@ lung$time2 <- plyr::round_any(lung$time, 14)
 cox2 <- coxph(Surv(time2, status) ~ age + sex + ph.ecog + ph.karno + pat.karno, data = lung, x = TRUE, y = FALSE)
 b_cox2 <- burgle(cox2)
 
-object.size(cox2)
-object.size(b_cox2)
-as.numeric(object.size(b_cox2)/object.size(cox2))*100
+pryr::object_size(cox2)
+pryr::object_size(b_cox2)
+as.numeric(pryr::object_size(b_cox2)/pryr::object_size(cox2))*100
 ```
 
-This reduce the size to `r paste0(round(as.numeric(object.size(b_cox2)/object.size(cox2))*100,2), "%")` of the original `coxph` object.
+This reduce the size to `r paste0(round(as.numeric(pryr::object_size(b_cox2)/pryr::object_size(cox2))*100,2), "%")` of the original `coxph` object.
 
 ## Survival predictions
 

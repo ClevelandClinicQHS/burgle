@@ -348,7 +348,7 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
   if(type == "lp"){
     return(preds)
   }
-  if(type == "risk"){
+  # if(type == "risk"){
 
     if(is.null(times)) stop("times is missing")
     if(is.unsorted(times)) warning("times is unsorted")
@@ -371,13 +371,18 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
                                                  0, diag = FALSE, exportSurv = FALSE)[["cif"]]
     }
 
-  }
+  # }
   if(type == "risk"){
     return(preds)
   }
 
-  if(sims >=1 & type == "response"){
-    preds <- lapply(preds, function(y) replicate(sims, apply(y, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE))
+  if(sims >= 1L & type == "response"){
+    if(!is.null(dim(preds))){
+      preds <- replicate(sims, apply(preds, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE)
+      if(sims == 1L) preds <- preds[[1]]
+    }else{
+      preds <- lapply(preds, function(y) replicate(sims, apply(y, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE))
+    }
   }
   preds
 

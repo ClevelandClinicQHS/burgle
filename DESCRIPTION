@@ -15,6 +15,7 @@ Imports:
     MASS 
 Suggests:
     survival,
-    riskRegression
+    riskRegression,
+    flexsurv
 Depends: 
     R (>= 4.0.0)

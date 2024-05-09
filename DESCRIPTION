@@ -2,9 +2,7 @@ Package: burgle
 Type: Package
 Title: 'Burgle': Stealing the necessary parts of model objects
 Version: 0.0.9000
-Authors@R: c(person("Paul", "Gunsalus", email = "gunsalp@ccf.org", role = c("aut","cre"), comment = c(ORCID = "0000-0001-6976-9094")),
-            person("Jarrod", "Dalton", email = "daltonj@ccf.org", role = "aut", comment = c(ORCID = "0000-0001-8336-1212")))
-Maintainer: The package maintainer <yourself@somewhere.net>
+Maintainer: Paul R. Gunsalus <gunsalp@ccf.org>
 Description: 'burgle' provides a way to reduce model objects to necessary parts, which makes them easier to work with, store, share and simulate multiple values for new responses while allowing for parameter uncertainty.
 License: MIT + file LICENSE
 Encoding: UTF-8
@@ -19,3 +17,9 @@ Suggests:
     flexsurv
 Depends: 
     R (>= 4.0.0)
+Authors@R: c(
+    person("Paul", "Gunsalus","R", email =  "gunsalp@ccf.org", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-6976-9094")),
+    person("Jarrod", "Dalton","E", email = "daltonj@ccf.org", role = "aut",
+           comment = c(ORCID = "0000-0001-8336-1212"))
+  )

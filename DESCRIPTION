@@ -1,6 +1,6 @@
 Package: burgle
 Type: Package
-Title: 'Burgle': Stealing the necessary parts of model objects
+Title: 'Burgle': Stealing the Necessary Parts of Model Objects
 Version: 0.0.9000
 Maintainer: Paul R. Gunsalus <gunsalp@ccf.org>
 Description: 'burgle' provides a way to reduce model objects to necessary parts, which makes them easier to work with, store, share and simulate multiple values for new responses while allowing for parameter uncertainty.
@@ -10,16 +10,17 @@ LazyData: true
 RoxygenNote: 7.2.3
 Imports:
     stats,
-    MASS 
+    MASS,
+    Rcpp
 Suggests:
     survival,
-    riskRegression,
-    flexsurv
+    flexsurv,
+    riskRegression
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(
-    person("Paul", "Gunsalus","R", email =  "gunsalp@ccf.org", role = c("aut", "cre"),
+    person(given = "Paul R.", "Gunsalus",, email =  "gunsalp@ccf.org", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-6976-9094")),
-    person("Jarrod", "Dalton","E", email = "daltonj@ccf.org", role = "aut",
+    person("Jarrod E.", "Dalton",, email = "daltonj@ccf.org", role = "aut",
            comment = c(ORCID = "0000-0001-8336-1212"))
   )

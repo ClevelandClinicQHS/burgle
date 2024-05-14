@@ -63,6 +63,8 @@ predict.burgle_lm <- function(object, newdata, original = FALSE, draws = 1, sims
                   apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
                   simplify = FALSE)
 
+  if(length(pn) == 1L){pn <- pn[[1]]}
+
   pn
 
 }
@@ -231,27 +233,37 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
     pr0 <- pr0[order(as.numeric(row.names(pr0)), as.numeric(pr0[,"model"])), ]
 
     pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:length(times)], ncol = length(times)))
+    # return(pr0)
+    if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
 
     if(type == "risk"){
-      if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
+      # if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
       return(pr0)
     }
 
   if(sims >= 1 & type == "response"){
     if(!is.null(dim(pr0))){
+
       pn <- replicate(sims,
                       apply(pr0, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
                       simplify = FALSE)
+      # return(pn)
+
+      if(sims < 2) pn <- pn[[1]]
+
     }else{
       pn <- lapply(pr0,
                    function(y) replicate(sims, apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
                                          simplify = FALSE))
+
+      if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
+
+
     }
+
   }
 
-  # if(keep_models){return(list("preds" = preds, models = models))}
-
-  pn
+    pn
 
 }
 
@@ -363,7 +375,7 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
                                                                          survtype = FALSE, productLimit = TRUE >
                                                                            0, diag = FALSE, exportSurv = FALSE)[["cif"]])
     }else{
-      preds <- riskRegression:::predictCIF_cpp(hazard = object$hazard, cumhazard = object$cumhazards,
+      preds <- predictCIF_cpp(hazard = object$hazard, cumhazard = object$cumhazards,
                                                eXb = exp(preds), strata = M.strata, newtimes = times, etimes = object$eventTimes, etimeMax = vec.Etime,
                                                t0 = 0, nEventTimes = length(object$eventTimes), nNewTimes = length(times),
                                                nData = nrow(newdata), cause = cause - 1, nCause = nMods,
@@ -387,3 +399,5 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
   preds
 
 }
+
+predictCIF_cpp <- utils::getFromNamespace("predictCIF_cpp", "riskRegression")

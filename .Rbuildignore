@@ -3,3 +3,4 @@
 ^README\.Rmd$
 ^LICENSE\.md$
 ^/proj/cphr/projects/packages/p0090/burgle/R/prep_burgle\.R$
+^cran-comments\.md$

@@ -1,7 +1,7 @@
 Package: burgle
 Type: Package
 Title: 'Burgle': Stealing the Necessary Parts of Model Objects
-Version: 0.0.9000
+Version: 0.1.0
 Maintainer: Paul R. Gunsalus <gunsalp@ccf.org>
 Description: 'burgle' provides a way to reduce model objects to necessary parts, which makes them easier to work with, store, share and simulate multiple values for new responses while allowing for parameter uncertainty.
 License: MIT + file LICENSE

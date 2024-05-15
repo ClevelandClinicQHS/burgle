@@ -34,7 +34,6 @@ devtools::install_github("ClevelandClinicQHS/burgle")
  2. The removal of data from the model objects can allow them to be shared freely, if there are data sharing concerns or requirements.
  3. A streamlined method to simulate response for parameter uncertainty and probabilistic sampling
 
-
 ## Linear Model Example
 
 ```{r example}

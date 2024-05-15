@@ -293,8 +293,6 @@ predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "risk", 
 predict(b_cox, newdata = head(lung), original = TRUE, draws = 1, type = "response", times = c(500, 1000))
 #> Warning in predict.burgle_coxph(b_cox, newdata = head(lung), original = TRUE, :
 #> times has a value of 1000 which is larger than the maximum time value of 883
-#> [[1]]
-#> [[1]][[1]]
 #>      [,1] [,2]
 #> [1,]    1    1
 #> [2,]    0    1

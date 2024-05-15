@@ -112,7 +112,6 @@ burgle.CauseSpecificCox <- function(object, ...){
 
 }
 
-## need to adapt the predict methods for coxph and CSC if length(coef) == 0
 
 
 

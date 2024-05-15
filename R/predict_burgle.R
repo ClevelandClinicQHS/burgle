@@ -267,6 +267,8 @@ predict.burgle_coxph <- function(object, newdata = NA, original = FALSE, draws =
 
 }
 
+predictCIF_cpp <- get("predictCIF_cpp", envir = asNamespace("riskRegression"), inherits = FALSE)
+
 #' @name predict_burgle
 #'
 #' @param cause which cause do you want to predict
@@ -368,7 +370,7 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
 
 
     if(is.list(preds)){
-      preds <- lapply(preds, function(x) riskRegression:::predictCIF_cpp(hazard = object$hazard, cumhazard = object$cumhazards,
+      preds <- lapply(preds, function(x) predictCIF_cpp(hazard = object$hazard, cumhazard = object$cumhazards,
                                                                          eXb = exp(x), strata = M.strata, newtimes = times, etimes = object$eventTimes, etimeMax = vec.Etime,
                                                                          t0 = 0, nEventTimes = length(object$eventTimes), nNewTimes = length(times),
                                                                          nData = nrow(newdata), cause = cause - 1, nCause = nMods,
@@ -400,4 +402,5 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
 
 }
 
-predictCIF_cpp <- utils::getFromNamespace("predictCIF_cpp", "riskRegression")
+# predictCIF_cpp <- utils::getFromNamespace("predictCIF_cpp", "riskRegression")
+# predictCIF_cpp <- get("predictCIF_cpp", envir = asNamespace("riskRegression"), inherits = FALSE)

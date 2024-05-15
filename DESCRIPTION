@@ -11,11 +11,10 @@ RoxygenNote: 7.2.3
 Imports:
     stats,
     MASS,
-    Rcpp
-Suggests:
     survival,
-    flexsurv,
     riskRegression
+Suggests:
+    flexsurv
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

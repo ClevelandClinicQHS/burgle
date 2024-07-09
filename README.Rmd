@@ -15,14 +15,18 @@ knitr::opts_chunk$set(
 
 # burgle
 
-<!-- badges: start -->
-<!-- badges: end -->
+[![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/burgle)](https://cran.r-project.org/package=burgle)
+![CRAN\_Download\_Counter](http://cranlogs.r-pkg.org/badges/grand-total/burgle)
 
 The goal of burgle is to "steal" only the necessary parts of model objects for applications in simuation.
 
 ## Installation
 
-You can install the development version of burgle like so:
+``` {r, eval = FALSE}
+install.packages("burgle")
+```
+
+Or you can install the development version of burgle like so:
 
 ``` {r, eval = FALSE}
 devtools::install_github("ClevelandClinicQHS/burgle")
@@ -193,4 +197,4 @@ Reduce(rbind, a3) |>
 ```
 
 
-This structure has also been implemented for `riskRegression::CSC` objects and the plan is to incorporate `rstan` objects, and an overall `predict.burgle_default` method and which will only a mean and covariance matrix as inputs.
+This structure has also been implemented for `riskRegression::CSC` and `flexsurv::flexsurvreg` objects and numerous others on the works and the plan is to also incorporate `rstan` objects, and an overall `predict.burgle_default` method and which will only a mean and covariance matrix as inputs.

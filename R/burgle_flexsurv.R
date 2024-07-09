@@ -6,18 +6,28 @@ burgle.flexsurvreg <- function(object, ...){
   coef <- stats::coef(object)
   ft <- as.character(attr(object$covdata$terms, "predvars"))[-c(1:2)]
   if (length(ft) < 1) {
-    # formula <- stats::formula(paste0("~1"))
     formula <- "1"
   }
   else {
-    # formula <- stats::reformulate(ft)
     formula <- ft
+  }
+  tlo <- attr(object$covdata$terms, "order")
+  if(any(tlo >1)){
+    tl <- attr(object$covdata$terms, "term.labels")
+    tl0 <- tl[which(tlo <=1)]
+    tli <- tl[which(tlo >1)]
+    tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+    formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
   }
   if (length(coef) == 0L) {
     cov <- matrix(0)
   }
   else {
     cov <- stats::vcov(object)
+    if(any(is.na(cov))){
+      warning("No covariance estimates found, predicting will only be done from the estimated model")
+      cov <- matrix(0, nrow = length(coef), ncol = length(coef))
+    }
   }
 
   pf <- object$dfns$p
@@ -38,7 +48,7 @@ burgle.flexsurvreg <- function(object, ...){
 #' @importFrom stats setNames
 #'
 #' @export
-predict.burgle_flexsurvreg <- function(object, newdata = NA, original = FALSE, draws = 1, sims = 1,
+predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, draws = 1, sims = 1,
                                        type = "lp", times = NULL, ...){
 
   if (!is.data.frame(newdata))
@@ -56,7 +66,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = FALSE, d
   if (length(ck1) > 0L) {
     if (!all(ck1)) {
       obs <- min(which(!ck1))
-      stop(paste0("varaible ", names(object$xlevels)[obs],
+      stop(paste0("variable ", names(object$xlevels)[obs],
                   " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]],
                                                  collapse = ",")))
     }
@@ -162,11 +172,14 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = FALSE, d
     if (!is.null(dim(pr0))) {
       pn <- replicate(sims, apply(pr0, 2, function(x) stats::rbinom(n = length(x),
                                                                     size = 1, prob = x)), simplify = FALSE)
+
+      if(sims < 2) pn <- pn[[1]]
     }
     else {
       pn <- lapply(pr0, function(y) replicate(sims, apply(y,
                                                           2, function(x) stats::rbinom(n = length(x), size = 1,
                                                                                        prob = x)), simplify = FALSE))
+      if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
     }
   }
 
@@ -178,4 +191,15 @@ flexsurv_risk <- function(f, t, start = 0, ...){
   dots <- list(...)
   r <- 1-((1 - f(t, ...))/(1 - f(start, ...)))
   r
+}
+
+## that's easy to implement
+flexsurv_ptime <- function(fp, fq, t, start = 0, ...){
+
+  dots <- list(...)
+  sp <- fp(start, ...)
+  qu_f_start <- sp + (1- sp)*t
+  q1 <- fq(qu_f_start, ...)
+
+  q1
 }

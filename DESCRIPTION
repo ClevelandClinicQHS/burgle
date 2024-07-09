@@ -1,7 +1,7 @@
 Package: burgle
 Type: Package
 Title: 'Burgle': Stealing the Necessary Parts of Model Objects
-Version: 0.1.0
+Version: 0.1.1
 Maintainer: Paul R. Gunsalus <gunsalp@ccf.org>
 Description: Provides a way to reduce model objects to necessary parts, making them easier to work with, store, share and simulate multiple values for new responses while allowing for parameter uncertainty.
 License: MIT + file LICENSE
@@ -14,7 +14,8 @@ Imports:
     survival,
     riskRegression
 Suggests:
-    flexsurv
+    flexsurv,
+    nnet
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

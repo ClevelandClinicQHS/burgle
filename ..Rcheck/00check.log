@@ -1,0 +1,13 @@
+* using log directory ‘/proj/cphr/projects/packages/p0090/burgle/..Rcheck’
+* using R version 4.3.1 (2023-06-16)
+* using platform: x86_64-pc-linux-gnu (64-bit)
+* R was compiled by
+    gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-18)
+    GNU Fortran (GCC) 8.5.0 20210514 (Red Hat 8.5.0-18)
+* running under: Red Hat Enterprise Linux 8.8 (Ootpa)
+* using session charset: UTF-8
+* checking for file ‘./DESCRIPTION’ ... ERROR
+Required field missing or empty:
+  ‘Author’
+* DONE
+Status: 1 ERROR

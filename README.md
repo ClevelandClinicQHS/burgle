@@ -3,15 +3,19 @@
 
 # burgle
 
-<!-- badges: start -->
-<!-- badges: end -->
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/burgle)](https://cran.r-project.org/package=burgle)
+![CRAN_Download_Counter](http://cranlogs.r-pkg.org/badges/grand-total/burgle)
 
 The goal of burgle is to “steal” only the necessary parts of model
 objects for applications in simuation.
 
 ## Installation
 
-You can install the development version of burgle like so:
+``` r
+install.packages("burgle")
+```
+
+Or you can install the development version of burgle like so:
 
 ``` r
 devtools::install_github("ClevelandClinicQHS/burgle")
@@ -445,7 +449,8 @@ Reduce(rbind, a3) |>
 #> [1] 0.810 0.625 0.570 0.870 0.645 0.660
 ```
 
-This structure has also been implemented for `riskRegression::CSC`
-objects and the plan is to incorporate `rstan` objects, and an overall
+This structure has also been implemented for `riskRegression::CSC` and
+`flexsurv::flexsurvreg` objects and numerous others on the works and the
+plan is to also incorporate `rstan` objects, and an overall
 `predict.burgle_default` method and which will only a mean and
 covariance matrix as inputs.

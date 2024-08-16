@@ -2,7 +2,7 @@
 #'
 #' @export
 burgle.coxph <- function(object, ...){
-  bh <- survival::basehaz(object, centered = FALSE)
+  bh <- suppressWarnings(survival::basehaz(object, centered = FALSE))
   ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
 
   ## intercept only model

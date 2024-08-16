@@ -11,7 +11,7 @@
 #' @param se whether or not to include the standard error in the simulations
 #' @param ... for future methods
 #'
-#' @return either a matrix of array of new model predictions
+#' @return either a matrix or list of new model predictions
 #' @export
 #'
 predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, ...){

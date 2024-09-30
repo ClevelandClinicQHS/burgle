@@ -109,7 +109,7 @@
 
 \item{se}{whether or not to include the standard error in the simulations}
 
-\item{limits}{limits (minimum and maximum) for simulated response values}
+\item{limits}{limits (minimum and maximum) for simulated response values.}
 }
 \value{
 either a matrix or list of new model predictions

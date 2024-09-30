@@ -9,12 +9,13 @@
 #' @param sims how many simulated response to draw
 #' @param type either 'lp', 'response', 'link' for glm or 'risk' if time dependent
 #' @param se whether or not to include the standard error in the simulations
+#' @param limits limits (minimum and maximum) for simulated response values.
 #' @param ... for future methods
 #'
 #' @return either a matrix or list of new model predictions
 #' @export
 #'
-predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, ...){
+predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, limits = NULL, ...){
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "response", "link"))
   nl <- names(object$xlevels)
@@ -59,9 +60,16 @@ predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims 
   ## rows are observation
   ## columns are models
   ## lists are the simulations
+  if(is.null(limits)){
   pn <- replicate(sims,
                   apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
                   simplify = FALSE)
+  }else{
+    pn <- replicate(sims,
+                    apply(preds, 2, function(x) rsamp(stats::rnorm, limits = limits, n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
+                    simplify = FALSE)
+  }
+
 
   if(length(pn) == 1L){pn <- pn[[1]]}
 
@@ -105,5 +113,32 @@ predict.burgle_glm <- function(object, newdata, original = TRUE, draws = 1, sims
 
   pn
 
+}
+
+rsamp <- function(FUN, limits, ...){
+  dots <- list(...)
+  l <- formals(FUN)
+  if(!("n" %in% names(l))){
+    stop("sample size (n) not present in called FUN")
+  }
+  y <- do.call(FUN, dots)
+
+  if(length(limits)!=2L){
+    stop("Limits must be of length two")
+  }
+  mn <- min(limits)
+  mx <- max(limits)
+  i <- 1
+  while(any(y<mn|y>mx)){
+    n1 <- sum(y<mn|y>mx)
+    dots["n"] <- n1
+    i
+    wn1 <- which(y<mn|y>mx)
+    ## This has to change the x changes
+    dots2 <- lapply(dots, function(x) if(length(x)>1L) x[wn1] else x)
+    y[wn1] <- do.call(FUN, dots2)
+
+  }
+  return(y)
 }
 

@@ -69,6 +69,7 @@
   sims = 1,
   type = "lp",
   se = FALSE,
+  limits = NULL,
   ...
 )
 
@@ -107,6 +108,8 @@
 \item{seed}{a seed to specificy for simulating responses (multinomial only)}
 
 \item{se}{whether or not to include the standard error in the simulations}
+
+\item{limits}{limits (minimum and maximum) for simulated response values}
 }
 \value{
 either a matrix or list of new model predictions

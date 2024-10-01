@@ -24,5 +24,5 @@ Authors@R: c(
     person("Jarrod E.", "Dalton",, email = "daltonj@ccf.org", role = "aut",
            comment = c(ORCID = "0000-0001-8336-1212")),
     person("Adam T.", "Perzynski",, role = "aut",
-           comment = c(ORCID = "0000-0001-8336-1212"))
+           comment = c(ORCID = "0000-0002-1323-0353"))
   )

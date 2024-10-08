@@ -1,13 +1,13 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# burgle
+# burgle <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/burgle)](https://cran.r-project.org/package=burgle)
 ![CRAN_Download_Counter](http://cranlogs.r-pkg.org/badges/grand-total/burgle)
 
 The goal of burgle is to “steal” only the necessary parts of model
-objects for applications in simuation.
+objects for applications in simulation.
 
 ## Installation
 

@@ -13,12 +13,12 @@ knitr::opts_chunk$set(
 )
 ```
 
-# burgle
+# burgle <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/burgle)](https://cran.r-project.org/package=burgle)
 ![CRAN\_Download\_Counter](http://cranlogs.r-pkg.org/badges/grand-total/burgle)
 
-The goal of burgle is to "steal" only the necessary parts of model objects for applications in simuation.
+The goal of burgle is to "steal" only the necessary parts of model objects for applications in simulation.
 
 ## Installation
 

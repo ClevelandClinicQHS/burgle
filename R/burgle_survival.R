@@ -186,7 +186,9 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
 
   }
 
-  pr0 <- pr0[order(as.numeric(row.names(pr0)), as.numeric(pr0[,"model"])), ]
+  if(nrow(pr0) > 1){
+    pr0 <- pr0[order(as.numeric(row.names(pr0)), as.numeric(pr0[,"model"])), ]
+  }
 
   pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:length(times)], ncol = length(times)))
 

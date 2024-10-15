@@ -11,11 +11,12 @@ RoxygenNote: 7.2.3
 Imports:
     stats,
     MASS,
-    survival,
-    riskRegression
+    survival (>= 3.5-3),
+    riskRegression (>= 2023.03.22)
 Suggests:
-    flexsurv,
-    nnet
+    flexsurv (>= 2.2.2),
+    nnet (>= 7.3-18),
+    testthat (>= 3.0.0)
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(
@@ -26,3 +27,4 @@ Authors@R: c(
     person("Adam T.", "Perzynski",, role = "aut",
            comment = c(ORCID = "0000-0002-1323-0353"))
   )
+Config/testthat/edition: 3

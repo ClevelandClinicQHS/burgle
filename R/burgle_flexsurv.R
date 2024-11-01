@@ -76,8 +76,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
   }
   if (original) {
     models <- object$coef
-  }
-  else {
+  }else {
     models <- MASS::mvrnorm(n = draws, mu = object$coef,
                             Sigma = object$cov)
   }
@@ -105,8 +104,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
 
   if (!is.null(dim(models))) {
     preds <- apply(models, 1, function(x) mm %*% x)
-  }
-  else {
+  }else {
     preds <- mm %*% models
   }
   if (type == "lp") {
@@ -142,6 +140,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
     }
 
     pr0 <- t(sapply(list_pr, function(x) do.call(flexsurv_risk, x)))
+    if(nrow(pr0) == 1L) pr0 <- t(pr0)
   }else{
     if(length(o_params) > 0L){
       if(is.null(dim(o_params))){
@@ -161,6 +160,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
 
     pr0 <- lapply(list_pr, function(y) t(sapply(y, function(x) do.call(flexsurv_risk, x))))
     pr0 <- lapply(pr0, `row.names<-`, NULL)
+    if(nrow(pr0[[1]] == 1L))  pr0 <- lapply(pr0, t)
   }
 
 
@@ -174,8 +174,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
                                                                     size = 1, prob = x)), simplify = FALSE)
 
       if(sims < 2) pn <- pn[[1]]
-    }
-    else {
+    } else {
       pn <- lapply(pr0, function(y) replicate(sims, apply(y,
                                                           2, function(x) stats::rbinom(n = length(x), size = 1,
                                                                                        prob = x)), simplify = FALSE))

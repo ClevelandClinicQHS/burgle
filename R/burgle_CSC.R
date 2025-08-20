@@ -57,6 +57,7 @@ burgle.CauseSpecificCox <- function(object, ...){
   evtimes <- object$eventTimes
 
   xlevels <- lapply(object$models, `[[`, "xlevels")
+  contrasts <- lapply(object$models, `[[`, "contrasts")
 
   l <- list("cumhazards" = cumhazards,
             "hazards" = hazards,
@@ -65,6 +66,7 @@ burgle.CauseSpecificCox <- function(object, ...){
             "coef" = coefs,
             "cov" = vcovs,
             "xlevels" = xlevels,
+            "contrasts" = contrasts,
             "formulas" = formulas
   )
 
@@ -141,7 +143,7 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
     models <- lapply(1:nMods, function(x) MASS::mvrnorm(n = draws, mu = o_coef[[x]], Sigma = object$cov[[x]]))
   }
   ## add to something if only one covariate
-  mms <- lapply(1:nMods, function(x) stats::model.matrix(stats::reformulate(object$formula[[x]]), data = newdata, xlev = o_xlvs[[x]]))
+  mms <- lapply(1:nMods, function(x) stats::model.matrix(stats::reformulate(object$formula[[x]]), data = newdata, xlev = o_xlvs[[x]], contrasts.arg = object$contrasts.arg[[x]]))
   if(any(!no_coef)){
     mms[!no_coef] <- lapply(mms[!no_coef], function(x) matrix(x[,-1] , nrow = nrow(newdata)))
   }

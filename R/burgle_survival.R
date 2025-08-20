@@ -55,11 +55,14 @@ burgle.coxph <- function(object, ...){
   }
   rss <- sum(object$residuals ^2)/(object$n - length(coef))
   xlevels <- object$xlevels
+  contrasts <- object$contrasts
+
   l <- list("coef" = coef,
             "cov" = cov,
             "rss" = rss,
             "xlevels" = xlevels,
             "formula" = formula,
+            "contrasts" = contrasts,
             "basehaz" = bh)
   class(l) <- "burgle_coxph"
   l
@@ -123,7 +126,7 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
     models <- MASS::mvrnorm(n = draws, mu = o_coef, Sigma = object$cov)
   }
 
-  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = o_xlvs)
+  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)
   if(!is.integer(o_coef)){
     mm <- matrix(mm[,-1], nrow = nrow(newdata))
   }

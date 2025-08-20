@@ -32,12 +32,13 @@ burgle.flexsurvreg <- function(object, ...){
 
   pf <- object$dfns$p
   xlevels <- object$covdata$xlev
+  contrasts <- attr(object$data$mml$mu, "contrasts")
   inv_t <- object$dlist$inv.transforms
   pars_i <- object$basepars
   loc <- which(names(coef) == object$dlist$location)
   opars_i <- setdiff(pars_i, loc)
 
-  l <- list(coef = coef, cov = cov,xlevels = xlevels, formula = formula, p_f = pf,
+  l <- list(coef = coef, cov = cov,xlevels = xlevels, contrasts = contrasts, formula = formula, p_f = pf,
             inv.transforms = inv_t, pars_indeces = pars_i, location = loc, opars_indeces = opars_i)
   class(l) <- "burgle_flexsurvreg"
   l
@@ -100,7 +101,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
   }
 
   mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata,
-                            xlev = object$xlevels)[,-1]
+                            xlev = object$xlevels, contrasts.arg = object$contrasts)[,-1]
 
   if (!is.null(dim(models))) {
     preds <- apply(models, 1, function(x) mm %*% x)

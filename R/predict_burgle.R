@@ -44,7 +44,7 @@ predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims 
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }
 
-  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = object$xlevels)
+  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
   if(!is.null(dim(models))){
     preds <- apply(models, 1, function(x) mm %*% x)

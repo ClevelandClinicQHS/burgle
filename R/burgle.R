@@ -28,6 +28,7 @@ burgle.lm <- function(object, ...){
   cov <- stats::vcov(object)
   rss <- sum(object$residuals ^2)/object$df.residual
   xlevels <- object$xlevels
+  contrasts <- object$contrasts
   formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
 
   ## interactions
@@ -47,6 +48,7 @@ burgle.lm <- function(object, ...){
             "cov" = cov,
             "rss" = rss,
             "xlevels" = xlevels,
+            "contrasts" = contrasts,
             "formula" = formula)
 
   class(l) <- "burgle_lm"
@@ -67,6 +69,8 @@ burgle.glm <- function(object, ...){
   rss <- sum(object$residuals ^2)/object$df.residual
 
   xlevels <- object$xlevels
+
+  contrasts <- object$contrasts
 
   formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
 
@@ -91,6 +95,7 @@ burgle.glm <- function(object, ...){
             "xlevels" = xlevels,
             "formula" = formula,
             "family" = family,
+            "contrasts" = contrasts,
             "inv_link" = inv_link)
 
   class(l) <- "burgle_glm"

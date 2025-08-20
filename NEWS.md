@@ -1,3 +1,10 @@
+# Changes in version 0.1.2
+
+## New features
+
+* Now allows ordered factor terms
+* burgle methods now exist for lme4::lmer models
+
 # Changes in version 0.1.1
 
 ## New features

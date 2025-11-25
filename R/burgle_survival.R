@@ -145,6 +145,10 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
     # mm <- mat
   }
 
+  if(nrow(newdata) == 1L){
+    mm <- matrix(mm, ncol = length(mm))
+  }
+
   # if(!is.null(dim(models))){
   #   preds <- apply(models, 1, function(x) mm %*% x)
   # }else{

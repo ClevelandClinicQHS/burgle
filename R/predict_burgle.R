@@ -18,23 +18,23 @@
 predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, limits = NULL, ...){
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "response", "link"))
-  nl <- names(object$xlevels)
-  ck0 <- nl %in% colnames(newdata)
-  if(!all(ck0)) stop(paste(nl[!ck0], "is not present in newdata"))
-  ulv <- lapply(nl, function(x) unique(newdata[,x]))
-  ck1s <- mapply(function(x, y) (y %in% x), object$xlevels, ulv, SIMPLIFY = FALSE)
-  ck1 <- sapply(ck1s, all)
-
-  if(length(ck1) > 0L){
-    if(!all(ck1)){
-      obs <- min(which(!ck1))
-      stop(
-        paste0("varaible ", names(object$xlevels)[obs], " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]], collapse = ","))
-      )
-
-    }
-
-  }
+  # nl <- names(object$xlevels)
+  # ck0 <- nl %in% colnames(newdata)
+  # if(!all(ck0)) stop(paste(nl[!ck0], "is not present in newdata"))
+  # ulv <- lapply(nl, function(x) unique(newdata[,x]))
+  # ck1s <- mapply(function(x, y) (y %in% x), object$xlevels, ulv, SIMPLIFY = FALSE)
+  # ck1 <- sapply(ck1s, all)
+  #
+  # if(length(ck1) > 0L){
+  #   if(!all(ck1)){
+  #     obs <- min(which(!ck1))
+  #     stop(
+  #       paste0("varaible ", names(object$xlevels)[obs], " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]], collapse = ","))
+  #     )
+  #
+  #   }
+  #
+  # }
   if(original & draws >1){
     stop("Can only have one draw from the original model")
   }
@@ -44,12 +44,15 @@ predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims 
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }
 
-  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
+  # mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
+  mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
   if(!is.null(dim(models))){
-    preds <- apply(models, 1, function(x) mm %*% x)
+    # preds <- apply(models, 1, function(x) mm %*% x)
+    preds <- fastmm(mm, t(models))
   }else{
-    preds <- mm %*% models
+    # preds <- mm %*% models
+    preds <- fastmm(mm, matrix(models))
   }
 
   if(type == "lp"){
@@ -61,15 +64,16 @@ predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims 
   ## columns are models
   ## lists are the simulations
   if(is.null(limits)){
-  pn <- replicate(sims,
-                  apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
-                  simplify = FALSE)
+  # pn <- replicate(sims,
+  #                 apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
+  #                 simplify = FALSE)
+  pn <- simulate_responses(preds, sims, se, sqrt(object$rss))
   }else{
-    pn <- replicate(sims,
-                    apply(preds, 2, function(x) rsamp(stats::rnorm, limits = limits, n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
-                    simplify = FALSE)
+    # pn <- replicate(sims,
+    #                 apply(preds, 2, function(x) rsamp(stats::rnorm, limits = limits, n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
+    #                 simplify = FALSE)
+    pn <- simulate_responses_limits(preds, sims, se, sqrt(object$rss), limits = limits)
   }
-
 
   if(length(pn) == 1L){pn <- pn[[1]]}
 
@@ -84,31 +88,42 @@ predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims 
 predict.burgle_glm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, ...){
   type <- match.arg(tolower(type), c("lp", "response", "link"))
   preds <- predict.burgle_lm(object, newdata = newdata, original = original, draws = draws, sims = 1, type = "lp", se = FALSE,  ... = ...)
-  preds <- replicate(sims,
-                     apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
-                     simplify = FALSE)
-  if(length(preds) == 1L){
-    preds <- preds[[1]]
-  }
+  # preds <- replicate(sims,
+  #                    apply(preds, 2, function(x) stats::rnorm(n = length(x), mean = x, sd = ifelse(se, sqrt(object$rss), 0))),
+  #                    simplify = FALSE)
+
+  preds <- simulate_responses(preds, sims, se, sqrt(object$rss))
+
   if(type == "lp"){
+    if(length(preds) == 1L){
+      preds <- preds[[1]]
+    }
     return(preds)
   }
-  if(is.null(dim(preds))){
+  # if(is.null(dim(preds))){
     preds <-  lapply(preds, object$inv_link)
-  }else{
-    preds <- object$inv_link(preds)
-  }
+  # }else{
+  #   preds <- object$inv_link(preds)
+  # }
   if(type == "link"){
     return(preds)
   }
   if(type == "response"){
     if(!grepl("binomial", object$family)) stop("please use type = 'link' for model families other than binomial and quasibinomial")
-    if(!is.null(dim(preds))){
-      pn <- apply(preds, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x))
-    }else{
-      pn <- lapply(preds,
-                   function(y) apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)))
+    if(is.list(preds)){
+      pn <- lapply(preds, simulate_responses_binom, sims = sims)
     }
+    else{
+      pn <- simulate_responses_binom(preds, sims = sims)
+    }
+
+    # pn <- simulate_responses_binom(preds, sims = sims)
+    # if(!is.null(dim(preds))){
+    #   pn <- apply(preds, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x))
+    # }else{
+    #   pn <- lapply(preds,
+    #                function(y) apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)))
+    # }
   }
 
   pn

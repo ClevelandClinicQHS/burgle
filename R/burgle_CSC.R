@@ -18,41 +18,58 @@ burgle.CauseSpecificCox <- function(object, ...){
 
   vcovs <- mapply(function(x, y) if(length(x) == 0L){return(matrix(0))}else{stats::vcov(y)}, coefs, models, SIMPLIFY = FALSE)
 
-  formulas <- lapply(models, function(x){
-    ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
-    if(length(ft) <1){
-      return("1")
-    }
-    f1 <- ft
-    ## interactions
-    tlo <- attr(x$terms, "order")
-    if(any(tlo >1)){
-      tl <- attr(x$terms, "term.labels")
-      tl0 <- tl[which(tlo <=1)]
-      tli <- tl[which(tlo >1)]
-      tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-      f1 <- c(f1, sapply(tli2, function(x) make_ints(x, o_form = f1, tl0 = tl0)))
-    }
-    ##
-    if(!is.null(x$strata)){
-      ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
-      ft2 <- ft[!grepl("strata", ft)]
-      if(length(ft2) <1){
-        return("1")
-      }
-      ## interactions
-      f1 <- ft2
-      tlo <- attr(x$terms, "order")
-      if(any(tlo >1)){
-        tl <- attr(x$terms, "term.labels")
-        tl0 <- tl[which(tlo <=1)]
-        tli <- tl[which(tlo >1)]
-        tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-        f1 <- c(f1, sapply(tli2, function(x) make_ints(x, o_form = f1, tl0 = tl0)))
-      }
-    }
-    f1
+  terms <- lapply(models, stats::terms)
+  terms <- lapply(terms, delete.response)
+  # lapply()
+  # if(attr)
+  terms <- delete.response(terms)
+  # terms <- lapply(terms, delete.env)
+  terms <- lapply(terms, function(x){
+    attr(x, ".Environment") <- NULL
+    return(x)
   })
+  # terms <- lapply(terms, function(x){
+  #   attr(x, "intercept") <- 0
+  #   return(x)
+  # })
+  # attr(terms, ".Environment") <- NULL
+  # attr(terms, "intercept") <- 0
+
+  # formulas <- lapply(models, function(x){
+  #   ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
+  #   if(length(ft) <1){
+  #     return("1")
+  #   }
+  #   f1 <- ft
+  #   ## interactions
+  #   tlo <- attr(x$terms, "order")
+  #   if(any(tlo >1)){
+  #     tl <- attr(x$terms, "term.labels")
+  #     tl0 <- tl[which(tlo <=1)]
+  #     tli <- tl[which(tlo >1)]
+  #     tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+  #     f1 <- c(f1, sapply(tli2, function(x) make_ints(x, o_form = f1, tl0 = tl0)))
+  #   }
+  #   ##
+  #   if(!is.null(x$strata)){
+  #     ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
+  #     ft2 <- ft[!grepl("strata", ft)]
+  #     if(length(ft2) <1){
+  #       return("1")
+  #     }
+  #     ## interactions
+  #     f1 <- ft2
+  #     tlo <- attr(x$terms, "order")
+  #     if(any(tlo >1)){
+  #       tl <- attr(x$terms, "term.labels")
+  #       tl0 <- tl[which(tlo <=1)]
+  #       tli <- tl[which(tlo >1)]
+  #       tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+  #       f1 <- c(f1, sapply(tli2, function(x) make_ints(x, o_form = f1, tl0 = tl0)))
+  #     }
+  #   }
+  #   f1
+  # })
 
   evtimes <- object$eventTimes
 
@@ -67,13 +84,16 @@ burgle.CauseSpecificCox <- function(object, ...){
             "cov" = vcovs,
             "xlevels" = xlevels,
             "contrasts" = contrasts,
-            "formulas" = formulas
+            # "formulas" = formulas,
+            "terms" = terms
   )
 
   class(l) <- "burgle_CauseSpecificCox"
   l
 
 }
+
+# delete.env <- function(x){attr(x, ".Environment") <- NULL; return(x)}
 
 predictCIF_cpp <- get("predictCIF_cpp", envir = asNamespace("riskRegression"), inherits = FALSE)
 
@@ -143,25 +163,38 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
     models <- lapply(1:nMods, function(x) MASS::mvrnorm(n = draws, mu = o_coef[[x]], Sigma = object$cov[[x]]))
   }
   ## add to something if only one covariate
-  mms <- lapply(1:nMods, function(x) stats::model.matrix(stats::reformulate(object$formula[[x]]), data = newdata, xlev = o_xlvs[[x]], contrasts.arg = object$contrasts.arg[[x]]))
-  if(any(!no_coef)){
-    mms[!no_coef] <- lapply(mms[!no_coef], function(x) matrix(x[,-1] , nrow = nrow(newdata)))
+  # mms <- lapply(1:nMods, function(x) stats::model.matrix(stats::reformulate(object$formula[[x]]), data = newdata, xlev = o_xlvs[[x]], contrasts.arg = object$contrasts.arg[[x]]))
+  mms <- lapply(1:nMods, function(x) stats::model.matrix(object$terms[[x]], data = newdata, xlev = o_xlvs[[x]], contrasts.arg = object$contrasts[[x]])[,-1])
+
+  if(nOs == 1){
+    mms <- lapply(mms, function(x) matrix(x, ncol = length(x)))
   }
 
+  if(any(no_coef)){
+    # mms[!no_coef] <- lapply(mms[!no_coef], function(x) matrix(x, nrow = nrow(newdata)))
+    mms[no_coef] <- lapply(mms[no_coef], function(x) matrix(0, nrow = nrow(newdata)))
+  }
+
+  ##### weird bug here, with binding rows at each step
   preds <- mapply(function(x, y){
     if(!is.null(dim(x))){
-      p1 <- apply(x, 1, function(x) y %*% x)
+      # p1 <- apply(x, 1, function(x) y %*% x)
+      # p1 <- apply(x, 1, function(x) fastmm(y, x))
+      p1 <- fastmm(y, t(x))
     }else{
-      p1 <- y %*% x
+      # p1 <- y %*% x
+      p1 <- fastmm(y, matrix(x))
     }
     p1
   }, models, mms, SIMPLIFY = TRUE)
+  #
+  # return(preds)
 
   if(nrow(newdata) == 1L & draws == 1L){preds <- matrix(preds, nrow = 1)}
 
   if(nrow(preds) > nrow(newdata)){
-    ov <- (nrow(newdata) * 1:draws)-draws
-    if(length(ov == 1L)){ov <- 1}
+    ov <- (nrow(newdata) * 1:draws)-nrow(newdata)
+    if(length(ov) == 1L){ov <- 1}
     preds <- mapply(function(x, y) preds[c(x:y), ], ov, (nrow(newdata) *1:draws), SIMPLIFY = FALSE)
   }
   if(type == "lp"){
@@ -195,10 +228,12 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
 
   if(sims >= 1L & type == "response"){
     if(!is.null(dim(preds))){
-      preds <- replicate(sims, apply(preds, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE)
+      # preds <- replicate(sims, apply(preds, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE)
+      preds <- simulate_responses_binom(preds, sims)
       if(sims == 1L) preds <- preds[[1]]
     }else{
-      preds <- lapply(preds, function(y) replicate(sims, apply(y, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE))
+      # preds <- lapply(preds, function(y) replicate(sims, apply(y, MARGIN = 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)), simplify = FALSE))
+      preds <- lapply(preds, function(y) simulate_responses_binom(y, sims))
       if(sims < 2) preds <- lapply(preds, function(x) if(length(x) == 1) x[[1]] else x)
       }
   }

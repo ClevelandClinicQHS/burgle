@@ -29,19 +29,23 @@ burgle.lm <- function(object, ...){
   rss <- sum(object$residuals ^2)/object$df.residual
   xlevels <- object$xlevels
   contrasts <- object$contrasts
-  formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  # formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  terms <- object$terms
+  terms <- delete.response(terms)
+  attr(terms, ".Environment") <- NULL
+
 
   ## interactions
-  tlo <- attr(object$terms, "order")
-  if(any(tlo >1)){
-    tl <- attr(object$terms, "term.labels")
-    tl0 <- tl[which(tlo <=1)]
-    tli <- tl[which(tlo >1)]
-    tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-    formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-  }
-
-  if(attr(object$terms, "intercept") == 0) formula <- c(formula, "-1")
+  # tlo <- attr(object$terms, "order")
+  # if(any(tlo >1)){
+  #   tl <- attr(object$terms, "term.labels")
+  #   tl0 <- tl[which(tlo <=1)]
+  #   tli <- tl[which(tlo >1)]
+  #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+  #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
+  # }
+  #
+  # if(attr(object$terms, "intercept") == 0) formula <- c(formula, "-1")
   ##
 
   l <- list("coef" = coef,
@@ -49,7 +53,8 @@ burgle.lm <- function(object, ...){
             "rss" = rss,
             "xlevels" = xlevels,
             "contrasts" = contrasts,
-            "formula" = formula)
+            # "formula" = formula,
+            "terms"= terms)
 
   class(l) <- "burgle_lm"
 
@@ -72,18 +77,22 @@ burgle.glm <- function(object, ...){
 
   contrasts <- object$contrasts
 
-  formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  # formula <- (as.character(attr(object$terms, "predvars"))[-c(1:2)])
+  #
+  # ## interactions
+  # tlo <- attr(object$terms, "order")
+  # if(any(tlo >1)){
+  #   tl <- attr(object$terms, "term.labels")
+  #   tl0 <- tl[which(tlo <=1)]
+  #   tli <- tl[which(tlo >1)]
+  #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+  #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
+  # }
+  # if(attr(object$terms, "intercept") == 0) formula <- c(formula, "-1")
 
-  ## interactions
-  tlo <- attr(object$terms, "order")
-  if(any(tlo >1)){
-    tl <- attr(object$terms, "term.labels")
-    tl0 <- tl[which(tlo <=1)]
-    tli <- tl[which(tlo >1)]
-    tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-    formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-  }
-  if(attr(object$terms, "intercept") == 0) formula <- c(formula, "-1")
+  terms <- object$terms
+  terms <- delete.response(terms)
+  attr(terms, ".Environment") <- NULL
 
   family <- object$family$family
 
@@ -93,7 +102,8 @@ burgle.glm <- function(object, ...){
             "cov" = cov,
             "rss" = rss,
             "xlevels" = xlevels,
-            "formula" = formula,
+            # "formula" = formula,
+            "terms" = terms,
             "family" = family,
             "contrasts" = contrasts,
             "inv_link" = inv_link)

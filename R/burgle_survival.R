@@ -3,46 +3,54 @@
 #' @export
 burgle.coxph <- function(object, ...){
   bh <- suppressWarnings(survival::basehaz(object, centered = FALSE))
-  ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
+  # ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
+
+  terms <- object$terms
+  # if(attr)
+  terms <- delete.response(terms)
+  attr(terms, ".Environment") <- NULL
+  # attr(terms, "intercept") <- 0
 
   ## intercept only model
-  if(length(ft)<1){
-    formula <- "1"
-  }else{
-    formula <- ft
-  }
-
-  ## interactions
-  tlo <- attr(object$terms, "order")
-  if(any(tlo >1)){
-    tl <- attr(object$terms, "term.labels")
-    tl0 <- tl[which(tlo <=1)]
-    tli <- tl[which(tlo >1)]
-    tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-    formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-  }
+  # if(length(ft)<1){
+  #   formula <- "1"
+  # }else{
+  #   formula <- ft
+  # }
+  #
+  # ## interactions
+  # tlo <- attr(object$terms, "order")
+  # if(any(tlo >1)){
+  #   tl <- attr(object$terms, "term.labels")
+  #   tl0 <- tl[which(tlo <=1)]
+  #   tli <- tl[which(tlo >1)]
+  #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+  #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
+  # }
   ## or no other coefficients
 
   if(!is.null(object$xlevels) && (!is.null(object$strata)| any(grepl("strata", names(object$xlevels))))){
 
     bh0 <- bh[, c("hazard", "strata")]
     bh <- bh[!duplicated(bh0),]
-    ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
-    ft2 <- ft[!grepl("strata", ft)]
-    if(length(ft2)<1){
-      formula <- "1"
-    }else{
-      formula <- ft2
-    }
-    ## interactions
-    tlo <- attr(object$terms, "order")
-    if(any(tlo >1)){
-      tl <- attr(object$terms, "term.labels")
-      tl0 <- tl[which(tlo <=1)]
-      tli <- tl[which(tlo >1)]
-      tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-      formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-    }
+    ###### there is a bug is only a strata term in formula will fix later
+    terms <- drop.special(terms, attr(terms, "specials")$strata)
+    # ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
+    # ft2 <- ft[!grepl("strata", ft)]
+    # if(length(ft2)<1){
+    #   formula <- "1"
+    # }else{
+    #   formula <- ft2
+    # }
+    # ## interactions
+    # tlo <- attr(object$terms, "order")
+    # if(any(tlo >1)){
+    #   tl <- attr(object$terms, "term.labels")
+    #   tl0 <- tl[which(tlo <=1)]
+    #   tli <- tl[which(tlo >1)]
+    #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
+    #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
+    # }
 
   }else{
     bh <- bh[!duplicated(bh$hazard),]
@@ -61,12 +69,15 @@ burgle.coxph <- function(object, ...){
             "cov" = cov,
             "rss" = rss,
             "xlevels" = xlevels,
-            "formula" = formula,
+            # "formula" = formula,
+            "terms" = terms,
             "contrasts" = contrasts,
             "basehaz" = bh)
   class(l) <- "burgle_coxph"
   l
 }
+
+drop.special <- get("drop.special", envir = asNamespace("survival"), inherits = FALSE)
 
 
 #' @name predict_burgle
@@ -96,29 +107,29 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
     xlvs <- append(o_xlvs, new_xlvs)
   }
 
-  nl <- names(xlvs)
-  ck0 <- nl %in% colnames(newdata)
-  if(!all(ck0)) stop(paste(nl[!ck0], "is not present in newdata"))
-  ulv <- lapply(nl, function(x) unique(newdata[,x]))
-  ck1s <- mapply(function(x, y) (y %in% x), xlvs, ulv, SIMPLIFY = FALSE)
-  ck1 <- sapply(ck1s, all)
-
-  if(length(ck1) > 0L){
-    if(!all(ck1)){
-      obs <- min(which(!ck1))
-      stop(
-        paste0("variable ", names(object$xlevels)[obs], " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]], collapse = ","))
-
-      )
-    }
-  }
+  # nl <- names(xlvs)
+  # ck0 <- nl %in% colnames(newdata)
+  # if(!all(ck0)) stop(paste(nl[!ck0], "is not present in newdata"))
+  # ulv <- lapply(nl, function(x) unique(newdata[,x]))
+  # ck1s <- mapply(function(x, y) (y %in% x), xlvs, ulv, SIMPLIFY = FALSE)
+  # ck1 <- sapply(ck1s, all)
+  #
+  # if(length(ck1) > 0L){
+  #   if(!all(ck1)){
+  #     obs <- min(which(!ck1))
+  #     stop(
+  #       paste0("variable ", names(object$xlevels)[obs], " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]], collapse = ","))
+  #
+  #     )
+  #   }
+  # }
 
   if(original & draws >1){
     stop("Can only have one draw from the original model")
   }
   o_coef <- object$coef
   if(is.null(o_coef)){
-    o_coef <- 0L
+    o_coef <- matrix(0L)
   }
   if(original){
     models <- o_coef
@@ -126,15 +137,24 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
     models <- MASS::mvrnorm(n = draws, mu = o_coef, Sigma = object$cov)
   }
 
-  mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)
-  if(!is.integer(o_coef)){
-    mm <- matrix(mm[,-1], nrow = nrow(newdata))
+  # mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)
+  mm <- model.matrix(object$terms, data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)[,-1]
+  if(is.integer(o_coef)){
+    # mm <- matrix(mm[,-1], nrow = nrow(newdata))
+    mm <- matrix(0, nrow = nrow(newdata))
+    # mm <- mat
   }
 
+  # if(!is.null(dim(models))){
+  #   preds <- apply(models, 1, function(x) mm %*% x)
+  # }else{
+  #   preds <- mm %*% models
+  # }
+
   if(!is.null(dim(models))){
-    preds <- apply(models, 1, function(x) mm %*% x)
+    preds <- fastmm(mm, t(models))
   }else{
-    preds <- mm %*% models
+    preds <- fastmm(mm, matrix(models))
   }
 
   if(type == "lp"){
@@ -170,7 +190,7 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
 
     pr0 <- mapply(function(x, y) cbind(matrix(sapply(y$hazard, function(z) (1-exp(-z)^exp(preds[x,]))), ncol = length(times)
                                               , dimnames = list(rep(x, ncol(preds)), times)
-    ), model = 1:(ncol(preds))), nd_i, bh_str)
+    ), model = 1:(ncol(preds))), nd_i, bh_str, SIMPLIFY = F)
 
     pr0 <- Reduce(rbind, pr0)
 
@@ -203,23 +223,32 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
   }
 
   if(sims >= 1 & type == "response"){
-    if(!is.null(dim(pr0))){
 
-      pn <- replicate(sims,
-                      apply(pr0, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
-                      simplify = FALSE)
-
-      if(sims < 2) pn <- pn[[1]]
-
-    }else{
-      pn <- lapply(pr0,
-                   function(y) replicate(sims, apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
-                                         simplify = FALSE))
-
-      if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
-
-
+    if(is.list(pr0)){
+      pn <- lapply(pr0, simulate_responses_binom, sims = sims)
     }
+    else{
+      pn <- simulate_responses_binom(pr0, sims = sims)
+    }
+
+    # pn <- simulate_responses_binom(pr0, sims = sims)
+    # if(!is.null(dim(pr0))){
+    #
+    #   pn <- replicate(sims,
+    #                   apply(pr0, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
+    #                   simplify = FALSE)
+    #
+    #   if(sims < 2) pn <- pn[[1]]
+    #
+    # }else{
+    #   pn <- lapply(pr0,
+    #                function(y) replicate(sims, apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
+    #                                      simplify = FALSE))
+    #
+    #   if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
+    #
+    #
+    # }
 
   }
 

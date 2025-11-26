@@ -240,7 +240,7 @@ List combine_hazards(List chst) {
     List dfs(m);
 
     for (int j = 0; j < m; ++j) {
-      DataFrame df = sublist[j];
+      DataFrame df = as<DataFrame>(sublist[j]);
       CharacterVector trans(df.nrows(), std::to_string(j + 1));
       df["trans"] = trans;
       dfs[j] = df;
@@ -265,7 +265,7 @@ List update_hazards(NumericMatrix lps, List chs) {
 
     for (int j = 0; j < n_cols; ++j) {
       double y = lps(i, j);
-      DataFrame z = chs[j];
+      DataFrame z = as<DataFrame>(chs[j]);
 
       NumericVector Haz = z["Haz"];
       NumericVector new_Haz = Haz * std::exp(y);

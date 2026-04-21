@@ -2,7 +2,7 @@
 #include <RcppEigen.h>
 using namespace Rcpp;
 
-// I'll fully acknowledge AI helped me write this code
+// I'll fully acknowledge AI/copilot helped me write this code
 
 // [[Rcpp::depends(RcppEigen)]]
 // [[Rcpp::export]]
@@ -12,21 +12,29 @@ Eigen::MatrixXd fastmm(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B) {
 }
 
 // [[Rcpp::export]]
-List simulate_responses(NumericMatrix preds, int sims, bool se, double rss) {
+List simulate_responses(NumericMatrix preds, int sims, bool se, NumericVector rss) {
   int n = preds.nrow();
   int p = preds.ncol();
-  double sd = se ? std::sqrt(rss) : 0.0;
+  NumericVector sd = rss;
 
   List result(sims);
   NumericMatrix sim(n, p);
 
-  for (int s = 0; s < sims; ++s) {
-    for (int j = 0; j < p; ++j) {
-      for (int i = 0; i < n; ++i) {
-        sim(i, j) = sd > 0.0 ? R::rnorm(preds(i, j), sd) : preds(i, j);
+  if(se){
+    for (int s = 0; s < sims; ++s) {
+      for (int j = 0; j < p; ++j) {
+        for (int i = 0; i < n; ++i) {
+
+          sim(i, j) = R::rnorm(preds(i, j), sd(i));
+        }
       }
+      result[s] = clone(sim);  // clone to avoid overwriting
     }
-    result[s] = clone(sim);  // clone to avoid overwriting
+  }else{
+    for (int s = 0; s < sims; ++s) {
+      sim = preds;
+      result[s] = clone(sim);
+    }
   }
 
   return result;
@@ -46,7 +54,7 @@ double rsamp_rnorm(double mean, double sd, double lower, double upper) {
 List simulate_responses_limits(NumericMatrix preds, int sims, bool se, double rss, NumericVector limits) {
   int n = preds.nrow();
   int p = preds.ncol();
-  double sd = se ? std::sqrt(rss) : 0.0;
+  double sd = se ? sqrt(rss) : 0.0;
 
   List result(sims);
   NumericMatrix sim(n, p);
@@ -66,14 +74,11 @@ List simulate_responses_limits(NumericMatrix preds, int sims, bool se, double rs
 
 // [[Rcpp::export]]
 List simulate_responses_binom(NumericMatrix preds, int sims){
-  // int m.size();
-  // NumericMatrix preds = m[1];
+
   int n = preds.nrow();
   int p = preds.ncol();
 
-  // return(p);
   List result(sims);
-  // return(result);
 
   // List result(sims);
   NumericMatrix sim(n, p);
@@ -91,12 +96,3 @@ List simulate_responses_binom(NumericMatrix preds, int sims){
   return result;
 
 }
-
-
-
-// if(!is.null(dim(preds))){
-//   pn <- apply(preds, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x))
-// }else{
-//   pn <- lapply(preds,
-//                function(y) apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)))
-// }

@@ -12,6 +12,7 @@
 \alias{predict.burgle_coxph}
 \alias{predict.burgle_lm}
 \alias{predict.burgle_glm}
+\alias{draw_models}
 \alias{predict_time.burgle_coxph}
 \alias{predict_time.burgle_flexsurvreg}
 \title{Predict for burgle methods}
@@ -71,6 +72,7 @@
   sims = 1,
   type = "lp",
   times = NULL,
+  seed = NULL,
   ...
 )
 
@@ -83,6 +85,8 @@
   type = "lp",
   se = FALSE,
   limits = NULL,
+  seed = NULL,
+  se_type = "prediction",
   ...
 )
 
@@ -94,8 +98,11 @@
   sims = 1,
   type = "lp",
   se = FALSE,
+  seed = NULL,
   ...
 )
+
+draw_models(object, original = T, draws = 1, seed = NULL)
 
 \method{predict_time}{burgle_coxph}(object, newdata, ...)
 
@@ -122,15 +129,19 @@
 
 \item{floor}{will set the minimum odds to 0, if negative odds exists}
 
-\item{seed}{a seed to specify for simulating responses (multinomial only)}
+\item{seed}{seed to set for reproducibility}
 
 \item{se}{whether or not to include the standard error in the simulations}
 
 \item{limits}{limits (minimum and maximum) for simulated response values.}
+
+\item{se_type}{either 'prediction' or 'confidence' for standard errors use in simulating}
 }
 \value{
 either a matrix or list of new model predictions
 }
 \description{
+Predict for burgle methods
+
 Predict for burgle methods
 }

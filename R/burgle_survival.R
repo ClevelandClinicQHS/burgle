@@ -3,31 +3,11 @@
 #' @export
 burgle.coxph <- function(object, ...){
   bh <- suppressWarnings(survival::basehaz(object, centered = FALSE))
-  # ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
 
   terms <- object$terms
-  # if(attr)
-  terms <- delete.response(terms)
+  terms <- stats::delete.response(terms)
   attr(terms, ".Environment") <- NULL
-  # attr(terms, "intercept") <- 0
 
-  ## intercept only model
-  # if(length(ft)<1){
-  #   formula <- "1"
-  # }else{
-  #   formula <- ft
-  # }
-  #
-  # ## interactions
-  # tlo <- attr(object$terms, "order")
-  # if(any(tlo >1)){
-  #   tl <- attr(object$terms, "term.labels")
-  #   tl0 <- tl[which(tlo <=1)]
-  #   tli <- tl[which(tlo >1)]
-  #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-  #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-  # }
-  ## or no other coefficients
 
   if(!is.null(object$xlevels) && (!is.null(object$strata)| any(grepl("strata", names(object$xlevels))))){
 
@@ -61,15 +41,14 @@ burgle.coxph <- function(object, ...){
   }else{
     cov <- stats::vcov(object)
   }
-  rss <- sum(object$residuals ^2)/(object$n - length(coef))
+  mse <- sum(object$residuals ^2)/(object$n - length(coef))
   xlevels <- object$xlevels
   contrasts <- object$contrasts
 
   l <- list("coef" = coef,
             "cov" = cov,
-            "rss" = rss,
+            "mse" = mse,
             "xlevels" = xlevels,
-            # "formula" = formula,
             "terms" = terms,
             "contrasts" = contrasts,
             "basehaz" = bh)
@@ -84,7 +63,161 @@ drop.special <- get("drop.special", envir = asNamespace("survival"), inherits = 
 #'
 #' @param times if type = "risk" time for which to predict risk, if times and sims is multiple the return will be lists within lists
 #' @export
-predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 1, sims = 1, type = "lp", times = NULL, ...){
+predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 1, sims = 1, type = "lp", times = NULL, seed = NULL, ...){
+
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
+
+  pn <- simulate_models(object, models = models, newdata = newdata, draws = draws, sims = sims, type = type, times = times, seed = seed, ...)
+
+  pn
+  # if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
+  # type <- match.arg(tolower(type), c("lp", "response", "risk"))
+  #
+  # ### check strata
+  # str_ck <- grepl("strata", names(object$xlevels))
+  # o_xlvs <- xlvs <- object$xlevels
+  #
+  # if(any(str_ck)){
+  #   str1 <- object$xlevels[str_ck]
+  #   o_xlvs <- object$xlevels[!str_ck]
+  #   str1n <- names(str1)
+  #   str1_v <- strsplit(gsub("strata|\\)|\\(", "", str1n), ", ")[[1]]
+  #   vn <- length(str1_v)
+  #   str1_ls <- strsplit(str1[[1]], ", ")
+  #   new_xlvs <- lapply(seq_len(vn), function(y) unique(sapply(str1_ls, function(x) x[y])))
+  #   ## if strata is numeric, tends to have an '=' sign
+  #   new_xlvs <- lapply(new_xlvs, function(x) gsub(".*=", "", x))
+  #   names(new_xlvs) <- str1_v
+  #   xlvs <- append(o_xlvs, new_xlvs)
+  # }
+  #
+  # if(is.null(models)){
+  #   models <- matrix(0L)
+  # }
+  #
+  # mm <- model.matrix(object$terms, data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)[,-1]
+  # if(is.integer(models)){
+  #   mm <- matrix(0, nrow = nrow(newdata))
+  # }
+  # if(nrow(newdata) == 1L){
+  #   mm <- matrix(mm, ncol = length(mm))
+  # }
+  #
+  #
+  # if(!is.null(dim(models))){
+  #   preds <- fastmm(mm, t(models))
+  # }else{
+  #   preds <- fastmm(mm, matrix(models))
+  # }
+  #
+  # if(type == "lp"){
+  #   return(preds)
+  # }
+  #
+  # bh <- object$basehaz
+  #
+  #
+  # if(is.null(times)) stop("times is missing")
+  #
+  # n_t <- length(times)
+  # if(max(times) > max(bh$time)) warning(paste("times has a value of", max(times), "which is larger than the maximum time value of", max(bh$time)))
+  #
+  # if(any(str_ck)){
+  #   str_s <- survival::strata(newdata[,names(new_xlvs)], shortlabel = TRUE)
+  #   if(any(grepl("=", bh$strata))){
+  #     if(length(new_xlvs) == 1){bh$strata <- factor(gsub(".*=", "", bh$strata))}
+  #     else{bh$strata <- factor(paste0(sapply(regmatches(bh$strata, gregexpr("(?<==)(.*?)(?=,)", bh$strata, perl = TRUE)), paste, collapse = ", ")
+  #                                     , ", ", gsub(".*=", "", bh$strata)))}
+  #   }
+  #
+  #   nd_i <- lapply(levels(bh$strata), function(x) which(str_s == x))
+  #   nd_e <- sapply(nd_i, function(x) length(x)>0L)
+  #
+  #   bh_tr <- lapply(times, function(x) bh[bh$time <= x,])
+  #
+  #   bh_str <- lapply(levels(bh$strata), function(x) Reduce(rbind, lapply(bh_tr, function(y) utils::tail(y[y$strata == x,], 1))))
+  #
+  #   ## check for minimum time needs to be put here, just set hazard to 0
+  #   bh_str <- mapply(function(x, y) if(nrow(x) < n_t){return(rbind(data.frame(hazard = rep(0, n_t-nrow(x)), time = -Inf, strata = y), x))}else{x}, bh_str, levels(bh$strata), SIMPLIFY = FALSE)
+  #
+  #   nd_i <- nd_i[nd_e]
+  #   bh_str <- bh_str[nd_e]
+  #
+  #   pr0 <- mapply(function(x, y) cbind(matrix(sapply(y$hazard, function(z) (1-exp(-z)^exp(preds[x,]))), ncol = n_t
+  #                                             , dimnames = list(rep(x, ncol(preds)), times)
+  #   ), model = 1:(ncol(preds))), nd_i, bh_str, SIMPLIFY = F)
+  #
+  #   pr0 <- Reduce(rbind, pr0)
+  #
+  #
+  # }else{
+  #
+  #   bh_tr <- Reduce(rbind, lapply(times, function(x) utils::tail(bh[bh$time <= x,], 1)))
+  #   if(nrow(bh_tr) < n_t){
+  #     bh_tr <- rbind(data.frame(hazard = rep(0, n_t-nrow(bh_tr)), time = -Inf), bh_tr)
+  #   }
+  #
+  #   pr0 <- cbind(matrix(sapply(bh_tr$hazard, function(z) (1-exp(-z)^exp(preds))),
+  #                       ncol = n_t,
+  #                       dimnames = list(rep(1:nrow(preds), ncol(preds)), times)),
+  #                model = sort(rep(1:(ncol(preds)), nrow(newdata))))
+  #
+  # }
+  #
+  # if(nrow(pr0) > 1){
+  #   pr0 <- pr0[order(as.numeric(row.names(pr0)), as.numeric(pr0[,"model"])), ]
+  # }
+  #
+  # pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:n_t], ncol = n_t))
+  #
+  # if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
+  #
+  # if(type == "risk"){
+  #
+  #   return(pr0)
+  # }
+  #
+  # if(sims >= 1 & type == "response"){
+  #
+  #   if(is.list(pr0)){
+  #     pn <- lapply(pr0, simulate_responses_binom, sims = sims)
+  #   }
+  #   else{
+  #     pn <- simulate_responses_binom(pr0, sims = sims)
+  #   }
+  #
+  #   # pn <- simulate_responses_binom(pr0, sims = sims)
+  #   # if(!is.null(dim(pr0))){
+  #   #
+  #   #   pn <- replicate(sims,
+  #   #                   apply(pr0, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
+  #   #                   simplify = FALSE)
+  #   #
+  #   #   if(sims < 2) pn <- pn[[1]]
+  #   #
+  #   # }else{
+  #   #   pn <- lapply(pr0,
+  #   #                function(y) replicate(sims, apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
+  #   #                                      simplify = FALSE))
+  #   #
+  #   #   if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
+  #   #
+  #   #
+  #   # }
+  #
+  # }
+
+  pn
+
+}
+
+#' @name simulate_models
+#'
+#' @param times if type = "risk" time for which to predict risk, if times and sims is multiple the return will be lists within lists
+#' @export
+simulate_models.burgle_coxph <- function(object, models, newdata, sims =1, type = "lp", seed = NULL, times = NULL,  ...){
+
+  if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
 
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "response", "risk"))
@@ -107,53 +240,16 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
     xlvs <- append(o_xlvs, new_xlvs)
   }
 
-  # nl <- names(xlvs)
-  # ck0 <- nl %in% colnames(newdata)
-  # if(!all(ck0)) stop(paste(nl[!ck0], "is not present in newdata"))
-  # ulv <- lapply(nl, function(x) unique(newdata[,x]))
-  # ck1s <- mapply(function(x, y) (y %in% x), xlvs, ulv, SIMPLIFY = FALSE)
-  # ck1 <- sapply(ck1s, all)
-  #
-  # if(length(ck1) > 0L){
-  #   if(!all(ck1)){
-  #     obs <- min(which(!ck1))
-  #     stop(
-  #       paste0("variable ", names(object$xlevels)[obs], " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]], collapse = ","))
-  #
-  #     )
-  #   }
-  # }
+  mm <- stats::model.matrix(object$terms, data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)[,-1]
 
-  if(original & draws >1){
-    stop("Can only have one draw from the original model")
-  }
-  o_coef <- object$coef
-  if(is.null(o_coef)){
-    o_coef <- matrix(0L)
-  }
-  if(original){
-    models <- o_coef
-  }else{
-    models <- MASS::mvrnorm(n = draws, mu = o_coef, Sigma = object$cov)
-  }
-
-  # mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)
-  mm <- model.matrix(object$terms, data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)[,-1]
-  if(is.integer(o_coef)){
-    # mm <- matrix(mm[,-1], nrow = nrow(newdata))
+  if(is.integer(models)){
     mm <- matrix(0, nrow = nrow(newdata))
-    # mm <- mat
   }
-
   if(nrow(newdata) == 1L){
     mm <- matrix(mm, ncol = length(mm))
   }
 
-  # if(!is.null(dim(models))){
-  #   preds <- apply(models, 1, function(x) mm %*% x)
-  # }else{
-  #   preds <- mm %*% models
-  # }
+  draws <- ncol(matrix(models))
 
   if(!is.null(dim(models))){
     preds <- fastmm(mm, t(models))
@@ -167,8 +263,8 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
 
   bh <- object$basehaz
 
-
   if(is.null(times)) stop("times is missing")
+  n_t <- length(times)
   if(max(times) > max(bh$time)) warning(paste("times has a value of", max(times), "which is larger than the maximum time value of", max(bh$time)))
 
   if(any(str_ck)){
@@ -187,43 +283,56 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
     bh_str <- lapply(levels(bh$strata), function(x) Reduce(rbind, lapply(bh_tr, function(y) utils::tail(y[y$strata == x,], 1))))
 
     ## check for minimum time needs to be put here, just set hazard to 0
-    bh_str <- mapply(function(x, y) if(nrow(x) < length(times)){return(rbind(data.frame(hazard = rep(0, length(times)-nrow(x)), time = -Inf, strata = y), x))}else{x}, bh_str, levels(bh$strata), SIMPLIFY = FALSE)
+    bh_str <- mapply(function(x, y) if(nrow(x) < n_t){return(rbind(data.frame(hazard = rep(0, n_t-nrow(x)), time = -Inf, strata = y), x))}else{x}, bh_str, levels(bh$strata), SIMPLIFY = FALSE)
 
     nd_i <- nd_i[nd_e]
     bh_str <- bh_str[nd_e]
 
-    pr0 <- mapply(function(x, y) cbind(matrix(sapply(y$hazard, function(z) (1-exp(-z)^exp(preds[x,]))), ncol = length(times)
-                                              , dimnames = list(rep(x, ncol(preds)), times)
-    ), model = 1:(ncol(preds))), nd_i, bh_str, SIMPLIFY = F)
+    ## probably code this in c++
+    # pr0 <- mapply(function(x, y) cbind(matrix(sapply(y$hazard, function(z) (1-exp(-z)^exp(preds[x,]))), ncol = n_t
+    #                                           , dimnames = list(rep(x, ncol(preds)), times)
+    # ), model = 1:(ncol(preds))), nd_i, bh_str, SIMPLIFY = F)
 
+    pr0 <-  mapply(function(x, y) cbind(matrix(new_risk(preds = matrix(preds[x,], ncol = draws), haz = y$hazard), ncol = n_t
+                                                , dimnames = list(rep(x, draws), times)), model = 1:(draws)), nd_i, bh_str, SIMPLIFY = F)
     pr0 <- Reduce(rbind, pr0)
 
 
   }else{
 
     bh_tr <- Reduce(rbind, lapply(times, function(x) utils::tail(bh[bh$time <= x,], 1)))
-    if(nrow(bh_tr) < length(times)){
-      bh_tr <- rbind(data.frame(hazard = rep(0, length(times)-nrow(bh_tr)), time = -Inf), bh_tr)
+    if(nrow(bh_tr) < n_t){
+      bh_tr <- rbind(data.frame(hazard = rep(0, n_t-nrow(bh_tr)), time = -Inf), bh_tr)
     }
 
-    pr0 <- cbind(matrix(sapply(bh_tr$hazard, function(z) (1-exp(-z)^exp(preds))),
-                        ncol = length(times),
-                        dimnames = list(rep(1:nrow(preds), ncol(preds)), times)),
-                 model = sort(rep(1:(ncol(preds)), nrow(newdata))))
+    ## we're going to code this in c++
+    # pr0 <- cbind(matrix(sapply(bh_tr$hazard, function(z) (1-exp(-z)^exp(preds))),
+    #                     ncol = n_t,
+    #                     dimnames = list(rep(1:nrow(preds), draws), times)),
+    #              model = sort(rep(1:(draws), nrow(newdata))))
+
+    pr0 <- cbind(matrix(new_risk(preds = preds, haz = bh_tr$hazard),
+                        ncol = n_t,
+                        dimnames = list(rep(1:nrow(preds), draws), times)),
+                 model = sort(rep(1:(draws), nrow(newdata))))
 
   }
+
+
 
   if(nrow(pr0) > 1){
     pr0 <- pr0[order(as.numeric(row.names(pr0)), as.numeric(pr0[,"model"])), ]
   }
 
-  pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:length(times)], ncol = length(times)))
+  pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:n_t], ncol = n_t))
 
-  if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
+  # if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
+  pr0 <- drop_list(pr0)
 
   if(type == "risk"){
 
     return(pr0)
+
   }
 
   if(sims >= 1 & type == "response"){
@@ -235,28 +344,41 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
       pn <- simulate_responses_binom(pr0, sims = sims)
     }
 
-    # pn <- simulate_responses_binom(pr0, sims = sims)
-    # if(!is.null(dim(pr0))){
-    #
-    #   pn <- replicate(sims,
-    #                   apply(pr0, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
-    #                   simplify = FALSE)
-    #
-    #   if(sims < 2) pn <- pn[[1]]
-    #
-    # }else{
-    #   pn <- lapply(pr0,
-    #                function(y) replicate(sims, apply(y, 2, function(x) stats::rbinom(n = length(x), size = 1, prob = x)),
-    #                                      simplify = FALSE))
-    #
-    #   if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
-    #
-    #
-    # }
-
   }
 
-  pn
+  pn <- lapply(pn, drop_list)
+  pn <- drop_list(pn)
 
+  pn
 }
+
+
+###
+#### trying this for later, it's close
+# Rcpp::cppFunction('
+#                   NumericMatrix new_risk(NumericMatrix preds, NumericVector haz){
+#   int hl = haz.size();
+#   int n = preds.nrow();
+#   int p = preds.ncol();
+#
+#   NumericMatrix rsk(n*p, hl);
+#
+#     for (int h = 0; h < hl; ++h) {
+#     double lam = std::exp(-haz[h]);
+#     for (int j = 0; j < p; ++j) {
+#       for (int i = 0; i < n; ++i) {
+#         rsk(i + n*j, h) = 1-pow(lam, exp(preds(i,j)));
+#       }
+#     }
+#     }
+#
+#    return rsk;
+#                   }
+#
+#                   ')
+
+
+
+
+
 

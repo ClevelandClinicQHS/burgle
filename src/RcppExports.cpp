@@ -24,7 +24,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // simulate_responses
-List simulate_responses(NumericMatrix preds, int sims, bool se, double rss);
+List simulate_responses(NumericMatrix preds, int sims, bool se, NumericVector rss);
 RcppExport SEXP _burgle_simulate_responses(SEXP predsSEXP, SEXP simsSEXP, SEXP seSEXP, SEXP rssSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -32,7 +32,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericMatrix >::type preds(predsSEXP);
     Rcpp::traits::input_parameter< int >::type sims(simsSEXP);
     Rcpp::traits::input_parameter< bool >::type se(seSEXP);
-    Rcpp::traits::input_parameter< double >::type rss(rssSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type rss(rssSEXP);
     rcpp_result_gen = Rcpp::wrap(simulate_responses(preds, sims, se, rss));
     return rcpp_result_gen;
 END_RCPP
@@ -120,6 +120,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// new_risk
+NumericMatrix new_risk(NumericMatrix preds, NumericVector haz);
+RcppExport SEXP _burgle_new_risk(SEXP predsSEXP, SEXP hazSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type preds(predsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type haz(hazSEXP);
+    rcpp_result_gen = Rcpp::wrap(new_risk(preds, haz));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_burgle_fastmm", (DL_FUNC) &_burgle_fastmm, 2},
@@ -131,6 +143,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_burgle_sample_time_event", (DL_FUNC) &_burgle_sample_time_event, 1},
     {"_burgle_combine_hazards", (DL_FUNC) &_burgle_combine_hazards, 1},
     {"_burgle_update_hazards", (DL_FUNC) &_burgle_update_hazards, 2},
+    {"_burgle_new_risk", (DL_FUNC) &_burgle_new_risk, 2},
     {NULL, NULL, 0}
 };
 

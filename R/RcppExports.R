@@ -37,3 +37,7 @@ update_hazards <- function(lps, chs) {
     .Call(`_burgle_update_hazards`, lps, chs)
 }
 
+new_risk <- function(preds, haz) {
+    .Call(`_burgle_new_risk`, preds, haz)
+}
+

@@ -282,3 +282,23 @@ List update_hazards(NumericMatrix lps, List chs) {
 
   return result;
 }
+
+// [[Rcpp::export]]
+NumericMatrix new_risk(NumericMatrix preds, NumericVector haz){
+  int hl = haz.size();
+  int n = preds.nrow();
+  int p = preds.ncol();
+
+  NumericMatrix rsk(n*p, hl);
+
+  for (int h = 0; h < hl; ++h) {
+    double lam = std::exp(-haz[h]);
+    for (int j = 0; j < p; ++j) {
+      for (int i = 0; i < n; ++i) {
+        rsk(i + n*j, h) = 1-pow(lam, exp(preds(i,j)));
+      }
+    }
+  }
+
+  return rsk;
+}

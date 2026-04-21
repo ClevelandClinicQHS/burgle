@@ -19,57 +19,14 @@ burgle.CauseSpecificCox <- function(object, ...){
   vcovs <- mapply(function(x, y) if(length(x) == 0L){return(matrix(0))}else{stats::vcov(y)}, coefs, models, SIMPLIFY = FALSE)
 
   terms <- lapply(models, stats::terms)
-  terms <- lapply(terms, delete.response)
-  # lapply()
-  # if(attr)
-  terms <- delete.response(terms)
+  terms <- lapply(terms, stats::delete.response)
+
+  # terms <- delete.response(terms)
   # terms <- lapply(terms, delete.env)
   terms <- lapply(terms, function(x){
     attr(x, ".Environment") <- NULL
     return(x)
   })
-  # terms <- lapply(terms, function(x){
-  #   attr(x, "intercept") <- 0
-  #   return(x)
-  # })
-  # attr(terms, ".Environment") <- NULL
-  # attr(terms, "intercept") <- 0
-
-  # formulas <- lapply(models, function(x){
-  #   ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
-  #   if(length(ft) <1){
-  #     return("1")
-  #   }
-  #   f1 <- ft
-  #   ## interactions
-  #   tlo <- attr(x$terms, "order")
-  #   if(any(tlo >1)){
-  #     tl <- attr(x$terms, "term.labels")
-  #     tl0 <- tl[which(tlo <=1)]
-  #     tli <- tl[which(tlo >1)]
-  #     tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-  #     f1 <- c(f1, sapply(tli2, function(x) make_ints(x, o_form = f1, tl0 = tl0)))
-  #   }
-  #   ##
-  #   if(!is.null(x$strata)){
-  #     ft <- as.character(attr(x$terms, "predvars"))[-c(1:2)]
-  #     ft2 <- ft[!grepl("strata", ft)]
-  #     if(length(ft2) <1){
-  #       return("1")
-  #     }
-  #     ## interactions
-  #     f1 <- ft2
-  #     tlo <- attr(x$terms, "order")
-  #     if(any(tlo >1)){
-  #       tl <- attr(x$terms, "term.labels")
-  #       tl0 <- tl[which(tlo <=1)]
-  #       tli <- tl[which(tlo >1)]
-  #       tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-  #       f1 <- c(f1, sapply(tli2, function(x) make_ints(x, o_form = f1, tl0 = tl0)))
-  #     }
-  #   }
-  #   f1
-  # })
 
   evtimes <- object$eventTimes
 

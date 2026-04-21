@@ -9,7 +9,7 @@ predict_time(object, ...)
 \arguments{
 \item{object}{a burgle object, used in with survival time}
 
-\item{...}{}
+\item{...}{arguments passed to other methods}
 }
 \value{
 a dataframe of with a smple

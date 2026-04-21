@@ -1,7 +1,7 @@
 #' Title
 #'
 #' @param object a burgle object, used in with survival time
-#' @param ...
+#' @param ... arguments passed to other methods
 #'
 #' @returns a dataframe of with a smple
 #' @export
@@ -18,7 +18,7 @@ predict_time <- function(object, ...){
 #' @export
 predict_time.burgle_CauseSpecificCox <- function(object, newdata, ...){
 
-  lps <- predict(object, newdata = newdata, type = "lp", ...)
+  lps <- stats::predict(object, newdata = newdata, type = "lp", ...)
 
   ## grab hazards from the CSC object
   chs <- lapply(object$hazards, function(x) data.frame(time = object$eventTimes, Haz = x[,1]))
@@ -37,7 +37,7 @@ predict_time.burgle_CauseSpecificCox <- function(object, newdata, ...){
 #' @export
 predict_time.burgle_coxph <- function(object, newdata, ...){
 
-  lps <- predict(object, newdata = newdata, type = "lp", ...)
+  lps <- stats::predict(object, newdata = newdata, type = "lp", ...)
 
   bh <- object$basehaz
   bh$hazard <- diff(c(0, bh$hazard))
@@ -56,7 +56,7 @@ predict_time.burgle_coxph <- function(object, newdata, ...){
 #' @export
 predict_time.burgle_flexsurvreg <- function(object, newdata, ...){
 
-  ste <- predict(object, newdata = newdata, type = "time", ...)
+  ste <- stats::predict(object, newdata = newdata, type = "time", ...)
 
   return(ste)
 

@@ -5,28 +5,8 @@ burgle.multinom <- function(object, ...){
 
   coef <- stats::coef(object)
   terms <- object$terms
-  terms <- delete.response(terms)
+  terms <- stats::delete.response(terms)
   attr(terms, ".Environment") <- NULL
-
-  # ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
-  # if (length(ft) < 1) {
-  #   formula <- "1"
-  # }
-  # else {
-  #   formula <- ft
-  # }
-  #
-  # tlo <- attr(object$terms, "order")
-  # if(any(tlo >1)){
-  #   tl <- attr(object$terms, "term.labels")
-  #   tl0 <- tl[which(tlo <=1)]
-  #   tli <- tl[which(tlo >1)]
-  #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-  #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-  # }
-  # if(attr(object$terms, "intercept") == 0L){
-  #   formula <- c(formula, "-1")
-  # }
 
   if (length(coef) == 0L) {
     cov <- matrix(0)
@@ -46,7 +26,7 @@ burgle.multinom <- function(object, ...){
     names(vcoef) <- colnames(cov)
   }
 
-  l <- list(coef = vcoef, cov = cov, xlevels = xlevels, #formula = formula,
+  l <- list(coef = vcoef, cov = cov, xlevels = xlevels,
             terms = terms, contrasts = contrasts,
             rlev = rlev)
 
@@ -66,22 +46,7 @@ predict.burgle_multinom <- function(object, newdata = NA, original = TRUE, draws
     stop("newdata must be an object of class data.frame")
   nc <- names(object$coef)
   type <- match.arg(tolower(type), c("lp", "response", "odds"))
-  # nl <- names(object$xlevels)
-  # ck0 <- nl %in% colnames(newdata)
-  # if (!all(ck0))
-  #   stop(paste(nl[!ck0], "is not present in newdata"))
-  # ulv <- lapply(nl, function(x) unique(newdata[, x])[[1]])
-  # ck1s <- mapply(function(x, y) (y %in% x), object$xlevels,
-  #                ulv, SIMPLIFY = FALSE)
-  # ck1 <- sapply(ck1s, all)
-  # if (length(ck1) > 0L) {
-  #   if (!all(ck1)) {
-  #     obs <- min(which(!ck1))
-  #     stop(paste0("varaible ", names(object$xlevels)[obs],
-  #                 " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]],
-  #                                                collapse = ",")))
-  #   }
-  # }
+
 
   if(original & draws >1){
     stop("Can only have one draw from the original model")
@@ -97,7 +62,6 @@ predict.burgle_multinom <- function(object, newdata = NA, original = TRUE, draws
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }
 
-  # mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata, xlev = object$xlevels)
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
   rnl <- length(rlev) - 1
@@ -105,10 +69,10 @@ predict.burgle_multinom <- function(object, newdata = NA, original = TRUE, draws
   if(is.null(dim(models))){
     ### does this ever happen?
     # pr1 <- apply(t(matrix(models, ncol = rnl)), 1, function(x) mm %*% x)
-    pr1 <- apply(t(matrix(models, ncol = rnl)), 1, function(x) fsatmm(mm, x))
+    pr1 <- apply(t(matrix(models, ncol = rnl)), 1, function(x) fastmm(mm, x))
   }else{
     # pr1 <- apply(models, 1, function(x) apply(t(matrix(x, ncol = rnl)), 1, function(y) mm %*% y), simplify = FALSE)
-    pr1 <- apply(models, 1, function(x) apply(t(matrix(x, ncol = rnl)), 1, function(y) fast(mm, y)), simplify = FALSE)
+    pr1 <- apply(models, 1, function(x) apply(t(matrix(x, ncol = rnl)), 1, function(y) fastmm(mm, y)), simplify = FALSE)
   }
   if(!is.list(pr1) & !is.matrix(pr1)) pr1 <- matrix(pr1, ncol = rnl)
 

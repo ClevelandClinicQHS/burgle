@@ -5,22 +5,8 @@ burgle.flexsurvreg <- function(object, ...){
 
   coef <- stats::coef(object)
   terms <- object$covdata$terms
-  terms <- delete.response(terms)
-  # ft <- as.character(attr(object$covdata$terms, "predvars"))[-c(1:2)]
-  # if (length(ft) < 1) {
-  #   formula <- "1"
-  # }
-  # else {
-  #   formula <- ft
-  # }
-  # tlo <- attr(object$covdata$terms, "order")
-  # if(any(tlo >1)){
-  #   tl <- attr(object$covdata$terms, "term.labels")
-  #   tl0 <- tl[which(tlo <=1)]
-  #   tli <- tl[which(tlo >1)]
-  #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-  #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-  # }
+  terms <- stats::delete.response(terms)
+
   if (length(coef) == 0L) {
     cov <- matrix(0)
   }
@@ -43,7 +29,7 @@ burgle.flexsurvreg <- function(object, ...){
   loc <- which(names(coef) == object$dlist$location)
   opars_i <- setdiff(pars_i, loc)
 
-  l <- list(coef = coef, cov = cov,xlevels = xlevels, contrasts = contrasts, #formula = formula,
+  l <- list(coef = coef, cov = cov,xlevels = xlevels, contrasts = contrasts,
             terms = terms,
             p_f = pf, p_h = hz, p_q = qn,
             e_times = unq,
@@ -181,7 +167,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
     list_pr <- append(as.list(o_params), list(p = preds))
     names(list_pr) <- c(nc[object$opars_indeces], nc[object$location])
     if(type == "time"){
-      ps <- runif(n = nrow(newdata))
+      ps <- stats::runif(n = nrow(newdata))
       list_pr <- append(list_pr, list(p = ps))
       # qp <-
       ste <- do.call(object$p_q, list_pr)
@@ -224,11 +210,13 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
 
       ## I think this is permissable, you either do that or do it 3 times, depending on what Jarrod wants, if this the case you just need to move
       ## ps into the lapply
-      ps <- runif(n = nrow(newdata))
+      ps <- stats::runif(n = nrow(newdata))
       ste <- lapply(list_pr, function(x){
         # ps <- runif(n = nrow(newdata))
         list_pr_x <- append(x, list(p = ps))
-        ste1 <- do.call(qp, list_pr_x)
+
+        ## I'm pretty sure that's what qp is
+        ste1 <- do.call(object$p_q, list_pr_x)
         ste1
       })
 

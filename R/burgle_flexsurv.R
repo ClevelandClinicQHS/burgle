@@ -115,7 +115,8 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
   }
 
 
-  if(is.vector(mm)) {mm <- matrix(mm)}
+  if(is.vector(mm)) {mm <- matrix(mm, nrow = nrow(newdata))}
+  # if(ncol(mm)== 1L) {mm <- t(mm)}
 
   if (!is.null(dim(models))) {
     # preds <- apply(models, 1, function(x) mm %*% x)

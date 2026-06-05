@@ -97,7 +97,7 @@ draw_models <- function(object, original = T, draws = 1, seed= NULL){
 #' @param se_type either 'prediction' or 'confidence' for standard errors use in simulating
 #'
 #' @export
-simulate_models.burgle_lm <- function(object, models = NULL, newdata, sims =1, type = "lp", se = FALSE, limits = NULL, seed = NULL, se_type = "prediction", ...){
+simulate_models.burgle_lm <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", ...){
   if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
@@ -139,7 +139,7 @@ simulate_models.burgle_lm <- function(object, models = NULL, newdata, sims =1, t
 #' @rdname simulate_models
 #'
 #' @export
-simulate_models.burgle_glm <- function(object, models = NULL, newdata, sims =1, type = "lp", se = FALSE, seed = NULL, se_type = "prediction", ...){
+simulate_models.burgle_glm <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, se_type = "prediction", ...){
   if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)

@@ -69,10 +69,10 @@ predict.burgle_multinom <- function(object, newdata = NA, original = TRUE, draws
   if(is.null(dim(models))){
     ### does this ever happen?
     # pr1 <- apply(t(matrix(models, ncol = rnl)), 1, function(x) mm %*% x)
-    pr1 <- apply(t(matrix(models, ncol = rnl)), 1, function(x) fastmm(mm, x))
+    pr1 <- apply(t(matrix(models, ncol = rnl)), 1, function(x) fastmm(mm, matrix(x)))
   }else{
     # pr1 <- apply(models, 1, function(x) apply(t(matrix(x, ncol = rnl)), 1, function(y) mm %*% y), simplify = FALSE)
-    pr1 <- apply(models, 1, function(x) apply(t(matrix(x, ncol = rnl)), 1, function(y) fastmm(mm, y)), simplify = FALSE)
+    pr1 <- apply(models, 1, function(x) apply(t(matrix(x, ncol = rnl)), 1, function(y) fastmm(mm, matrix(y))), simplify = FALSE)
   }
   if(!is.list(pr1) & !is.matrix(pr1)) pr1 <- matrix(pr1, ncol = rnl)
 

@@ -44,3 +44,11 @@ predict.burgle_cph <- function(object, ...){
   preds <- predict.burgle_coxph(object, ...)
   preds
 }
+
+#' @name predict_burgle
+#'
+#' @export
+simulate_models.burgle_cph <- function(object,  ...){
+  sims <- simulate_models.burgle_coxph(object, ...)
+  sims
+}

@@ -89,7 +89,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
     params <- models[,object$pars_indeces]
     locs <- models[,object$location]
     o_params <- models[,object$opars_indeces]
-    models <- models[,-object$pars_indeces]
+    models <- matrix(models[,-object$pars_indeces], nrow= draws)
     if(is.null(dim(o_params))){
       o_params <- mapply(function(x, y) y(o_params[x]), 1:length(o_params), object$inv.transforms[object$opars_indeces])
     }else{

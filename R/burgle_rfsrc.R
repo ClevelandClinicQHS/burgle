@@ -18,15 +18,15 @@ burgle.rfsrc <- function(object, ...){
   }
   new_rf$n <- 1
   ###
-  new_rf$forest <- NULL
+  # new_rf$forest <- NULL
   new_rf$event.info$time <- NULL
   new_rf$event.info$event <- NULL
   ## I think this works for now, it saves space
-  new_rf$nativeArrayTNDS$tnRMBR <- NULL
-  new_rf$nativeArrayTNDS$tnAMBR <- NULL
+  # new_rf$nativeArrayTNDS$tnRMBR <- NULL
+  # new_rf$nativeArrayTNDS$tnAMBR <- NULL
   ### above this
   new_rf$event.info$cens <- unique(new_rf$event.info$cens)
-  new_rf$seed <- NULL
+  # new_rf$seed <- NULL
   remove(list = ls(environment(new_rf$sampsize)), envir = environment(new_rf$sampsize))
   classes <- attr(new_rf, "class")
   if (sum(grepl("quantreg", class(object))) > 0){
@@ -38,6 +38,7 @@ burgle.rfsrc <- function(object, ...){
   ### we'll get creative
 
   classes <- c("burgle_rfsrc", classes)
+  # classes <- c("burgle_rfsrc", "anonymous", classes)
   attr(new_rf, "class") <- classes
   return(new_rf)
 }
@@ -55,7 +56,7 @@ predict.burgle_rfsrc <- function(object, newdata = NULL, type = "risk", sims = 1
   #   importance = FALSE
   # }
   attr(object, "class") <- attr(object, "class")[-1]
-  op1 <- stats::predict(object, newdata = newdata, importance = F, ...)
+  op1 <- stats::predict(object, newdata = newdata, importance = F, outcome = "test", ...)
 
   class3 <- class(op1)[3]
 

@@ -12,8 +12,8 @@
   object,
   models,
   newdata,
-  sims = 1,
   type = "lp",
+  sims = 1,
   seed = NULL,
   times = NULL,
   ...
@@ -23,11 +23,11 @@
   object,
   models = NULL,
   newdata,
-  sims = 1,
   type = "lp",
+  sims = 1,
+  seed = NULL,
   se = FALSE,
   limits = NULL,
-  seed = NULL,
   se_type = "prediction",
   ...
 )
@@ -36,10 +36,10 @@
   object,
   models = NULL,
   newdata,
-  sims = 1,
   type = "lp",
-  se = FALSE,
+  sims = 1,
   seed = NULL,
+  se = FALSE,
   se_type = "prediction",
   ...
 )
@@ -61,9 +61,9 @@ simulate_models(
 
 \item{newdata}{new data of class data.frame}
 
-\item{sims}{how many simulated response to draw}
-
 \item{type}{either 'lp', 'response', 'link' for glm or 'risk' if time dependent}
+
+\item{sims}{how many simulated response to draw}
 
 \item{seed}{seed to set for reproducibility}
 

@@ -6,6 +6,7 @@
 \alias{predict_burgle}
 \alias{predict.burgle_CauseSpecificCox}
 \alias{predict.burgle_cph}
+\alias{simulate_models.burgle_cph}
 \alias{predict.burgle_flexsurvreg}
 \alias{predict.burgle_multinom}
 \alias{predict.burgle_rfsrc}
@@ -30,6 +31,8 @@
 )
 
 \method{predict}{burgle_cph}(object, ...)
+
+\method{simulate_models}{burgle_cph}(object, ...)
 
 \method{predict}{burgle_flexsurvreg}(
   object,

@@ -215,7 +215,7 @@ predict.burgle_coxph <- function(object, newdata = NA, original = TRUE, draws = 
 #'
 #' @param times if type = "risk" time for which to predict risk, if times and sims is multiple the return will be lists within lists
 #' @export
-simulate_models.burgle_coxph <- function(object, models, newdata, sims =1, type = "lp", seed = NULL, times = NULL,  ...){
+simulate_models.burgle_coxph <- function(object, models, newdata, type = "lp", sims =1, seed = NULL, times = NULL,  ...){
 
   if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
 
@@ -249,7 +249,13 @@ simulate_models.burgle_coxph <- function(object, models, newdata, sims =1, type 
     mm <- matrix(mm, ncol = length(mm))
   }
 
-  draws <- ncol(matrix(models))
+  ##
+  draws <- if(is.matrix(models)) nrow(models) else 1
+  # draws <- ncol(matrix(models))
+  # draws <- nrow(matrix(models))
+
+  ## I think this is needed
+  if(is.vector(mm)) {mm <- matrix(mm, nrow = nrow(newdata))}
 
   if(!is.null(dim(models))){
     preds <- fastmm(mm, t(models))
@@ -325,7 +331,9 @@ simulate_models.burgle_coxph <- function(object, models, newdata, sims =1, type 
   }
 
   pr0 <- lapply(1:draws, function(x) matrix(pr0[pr0[,"model"] == x, 1:n_t], ncol = n_t))
-
+  if(n_t == 1L){
+    pr0 <- do.call(cbind, pr0)
+  }
   # if(is.list(pr0) & length(pr0) == 1){pr0 <- pr0[[1]]}
   pr0 <- drop_list(pr0)
 

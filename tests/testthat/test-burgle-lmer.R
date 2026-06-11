@@ -147,7 +147,7 @@ test_that("burgle lmer methods support alternate optimizers and fit inputs", {
     nd <- head(case$data)
     models <- draw_models(bfit)
 
-    expect_s3_class(bfit, "burgle_lmer", info = case$name)
+    expect_true(inherits(bfit, "burgle_lmer"), info = case$name)
     expect_equal(bfit[["coef"]], lme4::fixef(fit), info = case$name)
 
     expect_equal(

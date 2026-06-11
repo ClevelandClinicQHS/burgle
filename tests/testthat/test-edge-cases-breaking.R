@@ -88,14 +88,6 @@ test_that("burgle_lm handles empty model (formula ~ 0)", {
   expect_equal(names(bfit$coef), "Petal.Width")
 })
 
-test_that("burgle_lm with no intercept", {
-  # Formula with -1 to remove intercept
-  fit <- lm(Sepal.Length ~ Petal.Width - 1, data = iris)
-  bfit <- burgle(fit)
-  
-  expect_equal(names(bfit$coef), "Petal.Width")
-})
-
 test_that("burgle_lm handles singular fit with qr", {
   # Create a singular design matrix
   skip("Currently fails - singular fit handling needs work")
@@ -117,17 +109,6 @@ test_that("burgle_lm handles singular fit with qr", {
 # ============================================================================
 # BURGLE_GLM EDGE CASES
 # ============================================================================
-
-test_that("burgle_glm handles binomial family with identity link", {
-  # Unusual but valid combination (though problematic)
-  skip("This is a known problematic case")
-  
-  fit <- glm(I(Species == "versicolor") ~ Petal.Width + Sepal.Length,
-             family = binomial(link = "identity"), data = iris)
-  bfit <- burgle(fit)
-  
-  expect_equal(bfit$family, "binomial")
-})
 
 test_that("burgle_glm handles Poisson family", {
   # Poisson GLM with count data
@@ -234,16 +215,6 @@ test_that("burgle_glm with very small dataset", {
 # BURGLE_COXPH EDGE CASES
 # ============================================================================
 
-test_that("burgle_coxph handles models without covariates (intercept only)", {
-  lung <- survival::lung |>
-    transform(status = status - 1)
-  
-  # This will fail because coxph doesn't allow intercept-only models
-  expect_error({
-    fit <- survival::coxph(survival::Surv(time, status) ~ 1, data = lung)
-  })
-})
-
 test_that("burgle_coxph handles models with strata", {
   lung <- survival::lung |>
     transform(status = status - 1)
@@ -317,31 +288,6 @@ test_that("burgle_coxph with cluster argument", {
   bfit <- burgle(fit)
   
   expect_true(!is.null(bfit$coef))
-})
-
-test_that("burgle_coxph with time-varying covariates (incorrect use)", {
-  skip("Time-varying covariates require special handling")
-  
-  # This tests if burgle fails gracefully with improper time-varying covariate syntax
-  lung <- survival::lung |>
-    transform(status = status - 1)
-  
-  # Attempting to use time-varying syntax incorrectly should fail
-  expect_error({
-    fit <- survival::coxph(survival::Surv(time, status) ~ age + I(age * log(time)), data = lung)
-    bfit <- burgle(fit)
-  })
-})
-
-test_that("burgle_coxph with frailty (if supported)", {
-  skip_if_not_installed("frailtyEM")
-  skip("Frailty models may not be fully supported")
-  
-  lung <- survival::lung |>
-    transform(status = status - 1)
-  
-  # This may fail - frailty is not a standard coxph
-  # fit <- survival::coxph(survival::Surv(time, status) ~ age + frailty(sex), data = lung)
 })
 
 test_that("burgle_coxph with no variation in survival times", {
@@ -591,6 +537,5 @@ test_that("burgle_glm with missing intercept and factors", {
 # 1. Singular fits in lm - handling of NA coefficients needs testing
 # 2. Separation in logistic regression - large coefficients and covariance matrices
 # 3. Near-singular covariance matrices in flexsurv - NAs in cov element
-# 4. Frailty and time-varying covariates - not standard coxph
-# 5. Factor level validation in prediction - only validated against xlevels
+# 4. Factor level validation in prediction - only validated against xlevels
 

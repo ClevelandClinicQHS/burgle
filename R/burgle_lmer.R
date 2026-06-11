@@ -76,7 +76,7 @@ predict.burgle_lmer <- function(object, newdata, original = TRUE, draws = 1, sim
 #' Predict for burgle methods
 #'
 #' @rdname predict_burgle
-draw_models <- function(object, original = T, draws = 1, seed= NULL){
+draw_models <- function(object, original = TRUE, draws = 1, seed = NULL){
   if(original){
     models <- object$coef
   }else{

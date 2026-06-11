@@ -50,6 +50,66 @@ predict.burgle_glm <- function(object, newdata, original = TRUE, draws = 1, sims
 
 }
 
+## internal
+predict_re_lmer <- function(object, newdata, allow.new.levels = TRUE){
+  if(!isTRUE(object$re_intercept_only)){
+    stop("Only intercept-only random effects are currently supported for burgle_lmer predictions with re.form = NULL")
+  }
+
+  re_lp <- rep(0, nrow(newdata))
+  re_names <- names(object$ranef)
+
+  for(g in re_names){
+    if(!(g %in% names(newdata))){
+      stop(paste0("Grouping variable ", g, " not found in newdata"))
+    }
+    lev <- as.character(newdata[[g]])
+    re_df <- object$ranef[[g]]
+    re_vals <- re_df[lev, "(Intercept)"]
+    if(any(is.na(re_vals))){
+      if(!isTRUE(allow.new.levels)){
+        stop("Found new grouping levels in newdata and allow.new.levels = FALSE")
+      }
+      re_vals[is.na(re_vals)] <- 0
+    }
+    re_lp <- re_lp + re_vals
+  }
+
+  re_lp
+}
+
+#' @name predict_burgle
+#'
+#' @param re.form if NULL include random intercept contributions from fitted groups; if NA (default) use fixed effects only
+#' @param allow.new.levels whether unseen grouping levels in newdata are allowed (zero random-effect contribution)
+#'
+#' @export
+predict.burgle_lmer <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, limits = NULL, seed = NULL, se_type = "prediction", re.form = NA, allow.new.levels = TRUE, ...){
+  if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
+  type <- match.arg(tolower(type), c("lp", "response"))
+
+  if(original & draws > 1){
+    stop("Can only have one draw from the original model")
+  }
+
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
+
+  pn <- simulate_models(object,
+                        models = models,
+                        newdata = newdata,
+                        sims = sims,
+                        type = type,
+                        se = se,
+                        limits = limits,
+                        seed = seed,
+                        se_type = se_type,
+                        re.form = re.form,
+                        allow.new.levels = allow.new.levels,
+                        ...)
+
+  pn
+}
+
 rsamp <- function(FUN, limits, ...){
   dots <- list(...)
   l <- formals(FUN)
@@ -81,6 +141,9 @@ rsamp <- function(FUN, limits, ...){
 #'
 #' @rdname predict_burgle
 draw_models <- function(object, original = T, draws = 1, seed= NULL){
+  if(inherits(object, "burgle_lmer") && !isTRUE(original) && (!is.numeric(draws) || length(draws) != 1L || draws < 1 || is.na(draws))){
+    stop("draws must be at least 1")
+  }
   if(original){
     models <- object$coef
   }else{
@@ -188,10 +251,50 @@ simulate_models.burgle_glm <- function(object, models = NULL, newdata, type = "l
 
 }
 
+ #' @rdname simulate_models
+ #'
+ #' @param re.form if NULL include random intercept contributions from fitted groups; if NA use fixed effects only
+ #' @param allow.new.levels whether unseen grouping levels in newdata are allowed (zero random-effect contribution)
+ #'
+ #' @export
+ simulate_models.burgle_lmer <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", re.form = NA, allow.new.levels = TRUE, ...){
+   if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+
+   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
+
+   if(!is.null(dim(models))){
+     preds <- fastmm(mm, t(models))
+   }else{
+     preds <- fastmm(mm, matrix(models))
+   }
+
+   if(is.null(re.form)){
+    re_lp <- predict_re_lmer(object, newdata = newdata, allow.new.levels = allow.new.levels)
+    preds <- sweep(preds, 1L, re_lp, FUN = "+")
+   }
+
+   if(type == "lp"){
+     if(sims > 1L) warning("Only 1 sim is possible for type = 'lp'")
+     return(preds)
+   }
+
+   se_p <- rowSums(fastmm(mm, object$cov) * mm)
+   if(se_type == "prediction") se_p <- sqrt(se_p + object$mse)
+
+   if(is.null(limits)){
+     pn <- simulate_responses(preds, sims, se, se_p)
+   }else{
+     pn <- simulate_responses_limits(preds, sims, se, se_p, limits = limits)
+   }
+
+   pn <- drop_list(pn)
+
+   pn
+ }
+
 drop_list <- function(x){
   if(is.list(x) & length(x) == 1L) x <- x[[1]]
   return(x)
 }
-
 
 

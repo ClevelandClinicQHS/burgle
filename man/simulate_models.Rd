@@ -6,6 +6,7 @@
 \alias{simulate_models.burgle_coxph}
 \alias{simulate_models.burgle_lm}
 \alias{simulate_models.burgle_glm}
+\alias{simulate_models.burgle_lmer}
 \title{Simulate Models}
 \usage{
 \method{simulate_models}{burgle_coxph}(
@@ -44,6 +45,21 @@
   ...
 )
 
+\method{simulate_models}{burgle_lmer}(
+  object,
+  models = NULL,
+  newdata,
+  type = "lp",
+  sims = 1,
+  seed = NULL,
+  se = FALSE,
+  limits = NULL,
+  se_type = "prediction",
+  re.form = NA,
+  allow.new.levels = TRUE,
+  ...
+)
+
 simulate_models(
   object,
   models,
@@ -76,6 +92,10 @@ simulate_models(
 \item{limits}{limits (minimum and maximum) for simulated response values}
 
 \item{se_type}{either 'prediction' or 'confidence' for standard errors use in simulating}
+
+\item{re.form}{if NULL include random intercept contributions from fitted groups; if NA use fixed effects only}
+
+\item{allow.new.levels}{whether unseen grouping levels in newdata are allowed (zero random-effect contribution)}
 }
 \description{
 Simulating from burgle_ objects and draw_models()

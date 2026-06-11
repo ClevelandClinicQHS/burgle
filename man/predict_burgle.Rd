@@ -13,6 +13,7 @@
 \alias{predict.burgle_coxph}
 \alias{predict.burgle_lm}
 \alias{predict.burgle_glm}
+\alias{predict.burgle_lmer}
 \alias{draw_models}
 \alias{predict_time.burgle_coxph}
 \alias{predict_time.burgle_flexsurvreg}
@@ -105,6 +106,22 @@
   ...
 )
 
+\method{predict}{burgle_lmer}(
+  object,
+  newdata,
+  original = TRUE,
+  draws = 1,
+  sims = 1,
+  type = "lp",
+  se = FALSE,
+  limits = NULL,
+  seed = NULL,
+  se_type = "prediction",
+  re.form = NA,
+  allow.new.levels = TRUE,
+  ...
+)
+
 draw_models(object, original = T, draws = 1, seed = NULL)
 
 \method{predict_time}{burgle_coxph}(object, newdata, ...)
@@ -139,6 +156,10 @@ draw_models(object, original = T, draws = 1, seed = NULL)
 \item{limits}{limits (minimum and maximum) for simulated response values.}
 
 \item{se_type}{either 'prediction' or 'confidence' for standard errors use in simulating}
+
+\item{re.form}{if NULL include random intercept contributions from fitted groups; if NA (default) use fixed effects only}
+
+\item{allow.new.levels}{whether unseen grouping levels in newdata are allowed (zero random-effect contribution)}
 }
 \value{
 either a matrix or list of new model predictions

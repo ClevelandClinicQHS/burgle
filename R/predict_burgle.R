@@ -51,9 +51,9 @@ predict.burgle_glm <- function(object, newdata, original = TRUE, draws = 1, sims
 }
 
 ## internal
-predict_re_lmer <- function(object, newdata, allow.new.levels = TRUE){
+predict_re_intercept <- function(object, newdata, allow.new.levels = TRUE, model = "burgle_lmer"){
   if(!isTRUE(object$re_intercept_only)){
-    stop("Only intercept-only random effects are currently supported for burgle_lmer predictions with re.form = NULL")
+    stop(paste0("Only intercept-only random effects are currently supported for ", model, " predictions with re.form = NULL"))
   }
 
   re_lp <- rep(0, nrow(newdata))
@@ -76,6 +76,11 @@ predict_re_lmer <- function(object, newdata, allow.new.levels = TRUE){
   }
 
   re_lp
+}
+
+## internal
+predict_re_lmer <- function(object, newdata, allow.new.levels = TRUE){
+  predict_re_intercept(object = object, newdata = newdata, allow.new.levels = allow.new.levels, model = "burgle_lmer")
 }
 
 #' @name predict_burgle
@@ -141,9 +146,6 @@ rsamp <- function(FUN, limits, ...){
 #'
 #' @rdname predict_burgle
 draw_models <- function(object, original = T, draws = 1, seed= NULL){
-  if(inherits(object, "burgle_lmer") && !isTRUE(original) && (!is.numeric(draws) || length(draws) != 1L || draws < 1 || is.na(draws))){
-    stop("draws must be at least 1")
-  }
   if(original){
     models <- object$coef
   }else{

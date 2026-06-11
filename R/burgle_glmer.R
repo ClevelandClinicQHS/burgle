@@ -38,34 +38,6 @@ burgle.glmerMod <- function(object, ...){
   l
 }
 
-## internal
-predict_re_glmer <- function(object, newdata, allow.new.levels = TRUE){
-  if(!isTRUE(object$re_intercept_only)){
-    stop("Only intercept-only random effects are currently supported for burgle_glmer predictions with re.form = NULL")
-  }
-
-  re_lp <- rep(0, nrow(newdata))
-  re_names <- names(object$ranef)
-
-  for(g in re_names){
-    if(!(g %in% names(newdata))){
-      stop(paste0("Grouping variable ", g, " not found in newdata"))
-    }
-    lev <- as.character(newdata[[g]])
-    re_df <- object$ranef[[g]]
-    re_vals <- re_df[lev, "(Intercept)"]
-    if(any(is.na(re_vals))){
-      if(!isTRUE(allow.new.levels)){
-        stop("Found new grouping levels in newdata and allow.new.levels = FALSE")
-      }
-      re_vals[is.na(re_vals)] <- 0
-    }
-    re_lp <- re_lp + re_vals
-  }
-
-  re_lp
-}
-
 #' @name predict_burgle
 #'
 #' @export
@@ -111,7 +83,7 @@ simulate_models.burgle_glmer <- function(object, models = NULL, newdata, type = 
   }
 
   if(is.null(re.form)){
-    re_lp <- predict_re_glmer(object, newdata = newdata, allow.new.levels = allow.new.levels)
+    re_lp <- predict_re_intercept(object = object, newdata = newdata, allow.new.levels = allow.new.levels, model = "burgle_glmer")
     preds <- sweep(preds, 1L, re_lp, FUN = "+")
   }
 

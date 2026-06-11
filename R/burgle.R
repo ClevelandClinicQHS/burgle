@@ -27,7 +27,7 @@ burgle.lm <- function(object, ...){
   coef <- stats::coef(object)
   cov <- stats::vcov(object)
   if(any(is.na(coef))){
-    warning("At least 1 coefficient has a vlue of NA")
+    warning("At least 1 coefficient has a value of NA")
     coef[is.na(coef)] <- 0
     cov[is.na(cov)] <- 0
   }
@@ -135,4 +135,3 @@ burgle.lmerMod <- function(object, ...){
 
   l
 }
-

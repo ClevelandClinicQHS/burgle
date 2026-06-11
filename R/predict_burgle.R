@@ -50,43 +50,6 @@ predict.burgle_glm <- function(object, newdata, original = TRUE, draws = 1, sims
 
 }
 
-## internal
-predict_re_intercept <- function(object, newdata, allow.new.levels = TRUE, model = "burgle_lmer"){
-  if(!isTRUE(object$re_intercept_only)){
-    stop(paste0("Only intercept-only random effects are currently supported for ", model, " predictions with re.form = NULL"))
-  }
-
-  re_lp <- rep(0, nrow(newdata))
-  re_names <- names(object$ranef)
-
-  for(g in re_names){
-    if(!(g %in% names(newdata))){
-      stop(paste0("Grouping variable ", g, " not found in newdata"))
-    }
-    lev <- as.character(newdata[[g]])
-    re_df <- object$ranef[[g]]
-    re_vals <- re_df[lev, "(Intercept)"]
-    if(any(is.na(re_vals))){
-      if(!isTRUE(allow.new.levels)){
-        stop("Found new grouping levels in newdata and allow.new.levels = FALSE")
-      }
-      re_vals[is.na(re_vals)] <- 0
-    }
-    re_lp <- re_lp + re_vals
-  }
-
-  re_lp
-}
-
-## internal
-validate_re_form <- function(re.form, model){
-  if(is.null(re.form) || (length(re.form) == 1L && is.atomic(re.form) && is.na(re.form))){
-    return(invisible(NULL))
-  }
-
-  stop(paste0(model, " only supports re.form = NA (fixed effects only) or re.form = NULL (include fitted random effects)"))
-}
-
 rsamp <- function(FUN, limits, ...){
   dots <- list(...)
   l <- formals(FUN)

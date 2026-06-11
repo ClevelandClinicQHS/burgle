@@ -79,6 +79,15 @@ predict_re_intercept <- function(object, newdata, allow.new.levels = TRUE, model
 }
 
 ## internal
+validate_re_form <- function(re.form, model){
+  if(is.null(re.form) || (length(re.form) == 1L && is.atomic(re.form) && is.na(re.form))){
+    return(invisible(NULL))
+  }
+
+  stop(paste0(model, " only supports re.form = NA (fixed effects only) or re.form = NULL (include fitted random effects)"))
+}
+
+## internal
 predict_re_lmer <- function(object, newdata, allow.new.levels = TRUE){
   predict_re_intercept(object = object, newdata = newdata, allow.new.levels = allow.new.levels, model = "burgle_lmer")
 }
@@ -262,6 +271,7 @@ simulate_models.burgle_glm <- function(object, models = NULL, newdata, type = "l
  simulate_models.burgle_lmer <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", re.form = NA, allow.new.levels = TRUE, ...){
    if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
    se_type <- match.arg(tolower(se_type), c("prediction", "confidence"))
+   validate_re_form(re.form = re.form, model = "burgle_lmer")
 
    mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 

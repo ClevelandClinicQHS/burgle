@@ -73,6 +73,7 @@ predict.burgle_glmer <- function(object, newdata, original = TRUE, draws = 1, si
 simulate_models.burgle_glmer <- function(object, models = NULL, newdata, type = "lp", sims = 1, seed = NULL, se = FALSE, se_type = "prediction", re.form = NA, allow.new.levels = TRUE, ...){
   if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
   se_type <- match.arg(tolower(se_type), c("prediction", "confidence"))
+  validate_re_form(re.form = re.form, model = "burgle_glmer")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 

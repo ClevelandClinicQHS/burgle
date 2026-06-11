@@ -50,3 +50,40 @@ test_that("predict.burgle_lmer with multiple draws gives multiple columns", {
   expect_equal(ncol(result), 4)
   expect_equal(nrow(result), nrow(head(lme4::sleepstudy)))
 })
+
+test_that("simulate_models.burgle_lmer re.form options match lmer predictions", {
+  skip_if_not_installed("lme4")
+
+  fit <- lme4::lmer(Reaction ~ Days + (1 | Subject), data = lme4::sleepstudy)
+  bfit <- burgle(fit)
+  nd <- head(lme4::sleepstudy)
+  models <- draw_models(bfit)
+
+  preds_fixed <- simulate_models(bfit, models = models, newdata = nd, type = "lp", re.form = NA)
+  preds_conditional <- simulate_models(bfit, models = models, newdata = nd, type = "lp", re.form = NULL)
+
+  expect_equal(as.numeric(preds_fixed), as.numeric(stats::predict(fit, newdata = nd, re.form = NA)), tolerance = 1e-5)
+  expect_equal(as.numeric(preds_conditional), as.numeric(stats::predict(fit, newdata = nd, re.form = NULL)), tolerance = 1e-5)
+})
+
+test_that("mixed-model lmer methods honor allow.new.levels and reject unsupported re.form values", {
+  skip_if_not_installed("lme4")
+
+  fit <- lme4::lmer(Reaction ~ Days + (1 | Subject), data = lme4::sleepstudy)
+  bfit <- burgle(fit)
+  nd_new <- head(lme4::sleepstudy)
+  nd_new$Subject <- factor(rep("new_subject", nrow(nd_new)))
+
+  fixed_preds <- predict(bfit, newdata = nd_new, original = TRUE, draws = 1, type = "lp", re.form = NA)
+  new_level_preds <- predict(bfit, newdata = nd_new, original = TRUE, draws = 1, type = "lp", re.form = NULL, allow.new.levels = TRUE)
+
+  expect_equal(as.numeric(new_level_preds), as.numeric(fixed_preds), tolerance = 1e-5)
+  expect_error(
+    predict(bfit, newdata = nd_new, original = TRUE, draws = 1, type = "lp", re.form = NULL, allow.new.levels = FALSE),
+    "Found new grouping levels"
+  )
+  expect_error(
+    simulate_models(bfit, models = draw_models(bfit), newdata = head(lme4::sleepstudy), type = "lp", re.form = ~(1 | Subject)),
+    "only supports re.form = NA"
+  )
+})

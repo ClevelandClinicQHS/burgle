@@ -6,6 +6,7 @@
 \alias{simulate_models.burgle_coxph}
 \alias{simulate_models.burgle_lm}
 \alias{simulate_models.burgle_glm}
+\alias{simulate_models.burgle_glmer}
 \alias{simulate_models.burgle_lmer}
 \title{Simulate Models}
 \usage{
@@ -42,6 +43,20 @@
   seed = NULL,
   se = FALSE,
   se_type = "prediction",
+  ...
+)
+
+\method{simulate_models}{burgle_glmer}(
+  object,
+  models = NULL,
+  newdata,
+  type = "lp",
+  sims = 1,
+  seed = NULL,
+  se = FALSE,
+  se_type = "prediction",
+  re.form = NA,
+  allow.new.levels = TRUE,
   ...
 )
 

@@ -161,7 +161,7 @@ draw_models <- function(object, original = T, draws = 1, seed= NULL){
 #'
 #' @export
 simulate_models.burgle_lm <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", ...){
-  if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+  if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
@@ -258,7 +258,8 @@ simulate_models.burgle_glm <- function(object, models = NULL, newdata, type = "l
  #'
  #' @export
  simulate_models.burgle_lmer <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", re.form = NA, allow.new.levels = TRUE, ...){
-   if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+   if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
+   se_type <- match.arg(tolower(se_type), c("prediction", "confidence"))
 
    mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
@@ -296,5 +297,3 @@ drop_list <- function(x){
   if(is.list(x) & length(x) == 1L) x <- x[[1]]
   return(x)
 }
-
-

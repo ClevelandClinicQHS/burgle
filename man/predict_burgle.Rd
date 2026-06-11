@@ -13,6 +13,7 @@
 \alias{predict.burgle_coxph}
 \alias{predict.burgle_lm}
 \alias{predict.burgle_glm}
+\alias{predict.burgle_glmer}
 \alias{predict.burgle_lmer}
 \alias{draw_models}
 \alias{predict_time.burgle_coxph}
@@ -103,6 +104,21 @@
   type = "lp",
   se = FALSE,
   seed = NULL,
+  ...
+)
+
+\method{predict}{burgle_glmer}(
+  object,
+  newdata,
+  original = TRUE,
+  draws = 1,
+  sims = 1,
+  type = "lp",
+  se = FALSE,
+  seed = NULL,
+  se_type = "prediction",
+  re.form = NA,
+  allow.new.levels = TRUE,
   ...
 )
 

@@ -7,6 +7,7 @@
 \alias{burgle}
 \alias{burgle.lm}
 \alias{burgle.glm}
+\alias{burgle.glmerMod}
 \alias{burgle.lmerMod}
 \alias{burgle.CauseSpecificCox}
 \alias{burgle.cph}
@@ -21,6 +22,8 @@ burgle(object, ...)
 \method{burgle}{lm}(object, ...)
 
 \method{burgle}{glm}(object, ...)
+
+\method{burgle}{glmerMod}(object, ...)
 
 \method{burgle}{lmerMod}(object, ...)
 

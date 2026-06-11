@@ -14,7 +14,7 @@ test_that("burgle_lm handles models with NA coefficients", {
   df <- data.frame(x1 = 1:10, x2 = 1:10, y = rnorm(10))
   fit <- lm(y ~ x1 + x2, data = df)
   
-  # x1 and x2 are perfectly collinear, should get warning about singularities
+  # x1 and x2 are perfectly collinear, burgle handles this gracefully
   expect_silent(bfit <- burgle(fit))
   expect_true(all(!is.na(bfit$coef)))  # NA values should be replaced with 0
 })

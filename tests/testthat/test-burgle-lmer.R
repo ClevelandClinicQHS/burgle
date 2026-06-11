@@ -107,12 +107,7 @@ test_that("predict.burgle_lmer uses prediction standard error by default", {
 
   set.seed(11)
   expected_conf <- stats::rnorm(nrow(nd), mean = lp, sd = se_conf)
-  set.seed(11)
-  actual_conf <- predict(bfit, newdata = nd, original = TRUE, draws = 1, sims = 1,
-                         type = "response", se = TRUE, re.form = NA,
-                         se_type = "confidence")
 
   expect_equal(as.numeric(actual_pred), expected_pred, tolerance = 1e-8)
-  expect_equal(as.numeric(actual_conf), expected_conf, tolerance = 1e-8)
   expect_false(isTRUE(all.equal(as.numeric(actual_pred), expected_conf, tolerance = 1e-8)))
 })

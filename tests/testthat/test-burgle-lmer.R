@@ -87,3 +87,32 @@ test_that("mixed-model lmer methods honor allow.new.levels and reject unsupporte
     "only supports re.form = NA"
   )
 })
+
+test_that("predict.burgle_lmer uses prediction standard error by default", {
+  skip_if_not_installed("lme4")
+
+  fit <- lme4::lmer(Reaction ~ Days + (1 | Subject), data = lme4::sleepstudy)
+  bfit <- burgle(fit)
+  nd <- head(lme4::sleepstudy)
+  mm <- stats::model.matrix(bfit$terms, data = nd, xlev = bfit$xlevels, contrasts.arg = bfit$contrasts)
+  lp <- as.numeric(stats::predict(fit, newdata = nd, re.form = NA))
+  se_conf <- sqrt(rowSums(fastmm(mm, bfit$cov) * mm))
+  se_pred <- sqrt(se_conf^2 + bfit$mse)
+
+  set.seed(11)
+  expected_pred <- stats::rnorm(nrow(nd), mean = lp, sd = se_pred)
+  set.seed(11)
+  actual_pred <- predict(bfit, newdata = nd, original = TRUE, draws = 1, sims = 1,
+                         type = "response", se = TRUE, re.form = NA)
+
+  set.seed(11)
+  expected_conf <- stats::rnorm(nrow(nd), mean = lp, sd = se_conf)
+  set.seed(11)
+  actual_conf <- predict(bfit, newdata = nd, original = TRUE, draws = 1, sims = 1,
+                         type = "response", se = TRUE, re.form = NA,
+                         se_type = "confidence")
+
+  expect_equal(as.numeric(actual_pred), expected_pred, tolerance = 1e-8)
+  expect_equal(as.numeric(actual_conf), expected_conf, tolerance = 1e-8)
+  expect_false(isTRUE(all.equal(as.numeric(actual_pred), expected_conf, tolerance = 1e-8)))
+})

@@ -1,3 +1,32 @@
+make_glmer_test_cases <- function() {
+  cbpp_subset <- subset(lme4::cbpp, period != "4")
+
+  list(
+    list(
+      name = "bobyqa_nagq0",
+      data = lme4::cbpp,
+      fit = lme4::glmer(
+        cbind(incidence, size - incidence) ~ period + (1 | herd),
+        data = lme4::cbpp,
+        family = "binomial",
+        nAGQ = 0,
+        control = lme4::glmerControl(optimizer = c("bobyqa", "Nelder_Mead"), calc.derivs = FALSE)
+      )
+    ),
+    list(
+      name = "nloptwrap_subset",
+      data = cbpp_subset,
+      fit = lme4::glmer(
+        cbind(incidence, size - incidence) ~ period + (1 | herd),
+        data = cbpp_subset,
+        family = "binomial",
+        nAGQ = 1,
+        control = lme4::glmerControl(optimizer = c("nloptwrap", "nloptwrap"), calc.derivs = FALSE)
+      )
+    )
+  )
+}
+
 test_that("burgle_glmer preserves fixed effects", {
   skip_if_not_installed("lme4")
 
@@ -94,4 +123,43 @@ test_that("mixed-model glmer methods honor allow.new.levels and reject unsupport
     simulate_models(bfit, models = draw_models(bfit), newdata = head(lme4::cbpp), type = "lp", re.form = ~(1 | herd)),
     "only supports re.form = NA"
   )
+})
+
+test_that("burgle glmer methods support alternate optimizers and fit inputs", {
+  skip_if_not_installed("lme4")
+
+  for (case in make_glmer_test_cases()) {
+    fit <- case$fit
+    bfit <- burgle(fit)
+    nd <- head(case$data)
+    models <- draw_models(bfit)
+
+    expect_s3_class(bfit, "burgle_glmer", info = case$name)
+    expect_equal(bfit[["coef"]], lme4::fixef(fit), info = case$name)
+
+    expect_equal(
+      as.numeric(predict(bfit, newdata = nd, original = TRUE, draws = 1, type = "lp", re.form = NA)),
+      as.numeric(stats::predict(fit, newdata = nd, type = "link", re.form = NA)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+    expect_equal(
+      as.numeric(predict(bfit, newdata = nd, original = TRUE, draws = 1, type = "lp", re.form = NULL)),
+      as.numeric(stats::predict(fit, newdata = nd, type = "link", re.form = NULL)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+    expect_equal(
+      as.numeric(simulate_models(bfit, models = models, newdata = nd, type = "lp", re.form = NA)),
+      as.numeric(stats::predict(fit, newdata = nd, type = "link", re.form = NA)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+    expect_equal(
+      as.numeric(simulate_models(bfit, models = models, newdata = nd, type = "lp", re.form = NULL)),
+      as.numeric(stats::predict(fit, newdata = nd, type = "link", re.form = NULL)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+  }
 })

@@ -1,3 +1,29 @@
+make_lmer_test_cases <- function() {
+  sleepstudy_subset <- subset(lme4::sleepstudy, Days <= 7)
+
+  list(
+    list(
+      name = "bobyqa_reml_false",
+      data = lme4::sleepstudy,
+      fit = lme4::lmer(
+        Reaction ~ Days + (1 | Subject),
+        data = lme4::sleepstudy,
+        REML = FALSE,
+        control = lme4::lmerControl(optimizer = "bobyqa", calc.derivs = FALSE)
+      )
+    ),
+    list(
+      name = "nloptwrap_subset",
+      data = sleepstudy_subset,
+      fit = lme4::lmer(
+        Reaction ~ Days + (1 | Subject),
+        data = sleepstudy_subset,
+        control = lme4::lmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)
+      )
+    )
+  )
+}
+
 test_that("burgle_lmer preserves fixed effects", {
   skip_if_not_installed("lme4")
 
@@ -110,4 +136,43 @@ test_that("predict.burgle_lmer uses prediction standard error by default", {
 
   expect_equal(as.numeric(actual_pred), expected_pred, tolerance = 1e-8)
   expect_false(isTRUE(all.equal(as.numeric(actual_pred), expected_conf, tolerance = 1e-8)))
+})
+
+test_that("burgle lmer methods support alternate optimizers and fit inputs", {
+  skip_if_not_installed("lme4")
+
+  for (case in make_lmer_test_cases()) {
+    fit <- case$fit
+    bfit <- burgle(fit)
+    nd <- head(case$data)
+    models <- draw_models(bfit)
+
+    expect_s3_class(bfit, "burgle_lmer", info = case$name)
+    expect_equal(bfit[["coef"]], lme4::fixef(fit), info = case$name)
+
+    expect_equal(
+      as.numeric(predict(bfit, newdata = nd, original = TRUE, draws = 1, type = "lp", re.form = NA)),
+      as.numeric(stats::predict(fit, newdata = nd, re.form = NA)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+    expect_equal(
+      as.numeric(predict(bfit, newdata = nd, original = TRUE, draws = 1, type = "lp", re.form = NULL)),
+      as.numeric(stats::predict(fit, newdata = nd, re.form = NULL)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+    expect_equal(
+      as.numeric(simulate_models(bfit, models = models, newdata = nd, type = "lp", re.form = NA)),
+      as.numeric(stats::predict(fit, newdata = nd, re.form = NA)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+    expect_equal(
+      as.numeric(simulate_models(bfit, models = models, newdata = nd, type = "lp", re.form = NULL)),
+      as.numeric(stats::predict(fit, newdata = nd, re.form = NULL)),
+      tolerance = 1e-5,
+      info = case$name
+    )
+  }
 })

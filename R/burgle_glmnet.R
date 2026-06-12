@@ -69,6 +69,20 @@ burgle.cv.glmnet <- function(object, lambda_choice = "lambda.1se", ...){
   l
 }
 
+# Internal function for drawing models from glmnet objects
+# For glmnet, we don't have a covariance matrix, so we just return the original coefficients
+draw_models_glmnet <- function(object, original = TRUE, draws = 1, seed = NULL){
+  if(original){
+    models <- object$coef
+  }else{
+    # For glmnet, we can't sample from a zero covariance matrix
+    # Instead, just return the original coefficients multiple times
+    if(draws < 1 | is.na(draws)) stop("draws must be at least 1")
+    models <- matrix(object$coef, nrow = draws, ncol = length(object$coef), byrow = TRUE)
+  }
+  return(models)
+}
+
 #' @name predict_burgle
 #'
 #' @export
@@ -80,7 +94,7 @@ predict.burgle_glmnet <- function(object, newdata, original = TRUE, draws = 1, s
     stop("Can only have one draw from the original model")
   }
   
-  models <- draw_models(object, original = original, draws = draws, seed = seed)
+  models <- draw_models_glmnet(object, original = original, draws = draws, seed = seed)
   
   pn <- simulate_models(object, models = models, newdata = newdata, sims = sims, type = type, se = se, seed = seed, ...)
   
@@ -98,7 +112,7 @@ predict.burgle_cv.glmnet <- function(object, newdata, original = TRUE, draws = 1
     stop("Can only have one draw from the original model")
   }
   
-  models <- draw_models(object, original = original, draws = draws, seed = seed)
+  models <- draw_models_glmnet(object, original = original, draws = draws, seed = seed)
   
   pn <- simulate_models(object, models = models, newdata = newdata, sims = sims, type = type, se = se, seed = seed, ...)
   
@@ -257,4 +271,10 @@ simulate_models.burgle_cv.glmnet <- function(object, models = NULL, newdata, typ
   }
   
   preds
+}
+
+# Utility function to simplify lists with single element
+drop_list <- function(x){
+  if(is.list(x) & length(x) == 1L) x <- x[[1]]
+  return(x)
 }

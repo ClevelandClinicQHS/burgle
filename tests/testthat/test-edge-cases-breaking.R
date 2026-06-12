@@ -221,7 +221,7 @@ test_that("burgle_coxph handles models with strata", {
   lung <- survival::lung |>
     transform(status = status - 1)
   
-  fit <- survival::coxph(survival::Surv(time, status) ~ age + strata(sex), data = lung)
+  fit <- survival::coxph(survival::Surv(time, status) ~ age + survival::strata(sex), data = lung)
   bfit <- burgle(fit)
   
   expect_true(!is.null(bfit$basehaz))
@@ -235,7 +235,7 @@ test_that("burgle_coxph handles models with multiple strata", {
   # Add another stratification variable
   lung$group <- rep(c("A", "B"), length.out = nrow(lung))
   
-  fit <- survival::coxph(survival::Surv(time, status) ~ age + strata(sex) + strata(group), data = lung)
+  fit <- survival::coxph(survival::Surv(time, status) ~ age + survival::strata(sex) + survival::strata(group), data = lung)
   bfit <- burgle(fit)
   
   expect_true(!is.null(bfit$basehaz))
@@ -520,7 +520,8 @@ test_that("burgle_lm with factors in model matrix but wrong contrasts", {
             contrasts = list(Species = contr.helmert))
   bfit <- burgle(fit)
   
-  expect_equal(bfit$contrasts$Species, contr.helmert(3))
+  # Compare values without row names since lm preserves factor levels as row names
+  expect_equal(unname(bfit$contrasts$Species), unname(contr.helmert(3)))
 })
 
 test_that("burgle_glm with missing intercept and factors", {

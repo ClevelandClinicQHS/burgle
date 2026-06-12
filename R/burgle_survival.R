@@ -10,11 +10,21 @@ burgle.coxph <- function(object, ...){
 
 
   if(!is.null(object$xlevels) && (!is.null(object$strata)| any(grepl("strata", names(object$xlevels))))){
-
-    bh0 <- bh[, c("hazard", "strata")]
-    bh <- bh[!duplicated(bh0),]
+    
+    # Check if basehaz has a strata column
+    if("strata" %in% colnames(bh)){
+      bh0 <- bh[, c("hazard", "strata")]
+      bh <- bh[!duplicated(bh0),]
+    } else {
+      # If no strata column, just remove duplicate hazard values
+      bh <- bh[!duplicated(bh$hazard),]
+    }
     ###### there is a bug is only a strata term in formula will fix later
-    terms <- drop.special(terms, attr(terms, "specials")$strata)
+    # Only call drop.special if strata indices are not empty
+    strata_indices <- attr(terms, "specials")$strata
+    if(length(strata_indices) > 0 && any(strata_indices)){
+      terms <- drop.special(terms, strata_indices)
+    }
     # ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
     # ft2 <- ft[!grepl("strata", ft)]
     # if(length(ft2)<1){

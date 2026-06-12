@@ -17,6 +17,7 @@ Imports:
     survival (>= 3.5-3)
 Suggests:
     flexsurv (>= 2.2.2),
+    glmnet,
     lme4,
     nnet (>= 7.3-18),
     testthat (>= 3.0.0),

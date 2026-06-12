@@ -6,7 +6,7 @@ test_that("burgle_lm preserves coefficients", {
   fit <- lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris)
   bfit <- burgle(fit)
 
-  expect_named(bfit, c("coef", "cov", "rss", "xlevels", "contrasts", "terms"))
+  expect_named(bfit, c("coef", "cov", "mse", "xlevels", "contrasts", "terms"))
   expect_equal(bfit[["coef"]], stats::coef(fit))
 })
 

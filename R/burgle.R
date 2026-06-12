@@ -26,11 +26,6 @@ burgle.lm <- function(object, ...){
 
   coef <- stats::coef(object)
   cov <- stats::vcov(object)
-  if(any(is.na(coef))){
-    warning("At least 1 coefficient has a vlue of NA")
-    coef[is.na(coef)] <- 0
-    cov[is.na(cov)] <- 0
-  }
 
   mse <- sum(object$residuals ^2)/object$df.residual
   xlevels <- object$xlevels
@@ -62,12 +57,6 @@ burgle.glm <- function(object, ...){
   coef <- stats::coef(object)
 
   cov <- stats::vcov(object)
-
-  if(any(is.na(coef))){
-    warning("At least 1 coefficient has a vlue of NA")
-    coef[is.na(coef)] <- 0
-    cov[is.na(cov)] <- 0
-  }
 
   mse <- sum(object$residuals ^2)/object$df.residual
 

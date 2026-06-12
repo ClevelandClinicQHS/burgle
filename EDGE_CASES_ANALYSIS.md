@@ -16,19 +16,25 @@ fit <- lm(y ~ x1 + x2, data = df)  # x1 and x2 are collinear
 **Error/Warning:** 
 - `lm()` returns NAs in coefficients
 - `vcov()` returns NAs in covariance matrix
-- Line 31 in burgle.R: `coef[is.na(coef)] <- 0` handles NAs but silently replaces them
 
 **Current Code Behavior:**
+- `burgle()` now preserves the original model including NA coefficients
+- NA replacement with 0 is handled in the `draw_models()` function during prediction stage
+- A warning is issued when predictions are made with NA coefficients replaced
+
 ```r
-# In burgle.lm (R/burgle.R, line 29-32):
-if(any(is.na(coef))){
-  warning("At least 1 coefficient has a vlue of NA")  # Note: typo "vlue"
-  coef[is.na(coef)] <- 0
-  cov[is.na(cov)] <- 0
+# In draw_models (R/predict_burgle.R):
+if(!is.null(dim(models))){
+  na_mask <- is.na(models)
+  if(any(na_mask)){
+    # Replace NAs with 0 during prediction
+    models[na_mask] <- 0
+  }
 }
 ```
-**Solution Status:** ✓ Already handled with replacement
-**Possible Enhancement:** Store a flag indicating which coefficients were NA-replaced for prediction warnings
+
+**Solution Status:** ✓ Handled with replacement during prediction stage
+**Design Rationale:** NA replacement is kept in the predict stage to preserve the original model object and its details in the burgle output
 
 ---
 
@@ -184,8 +190,9 @@ inv_link <- object$family$linkinv
 df <- data.frame(y = rbinom(20, 1, 0.5), x1 = rep(0:1, 10), x2 = rep(0:1, 10))
 fit <- glm(y ~ x1 + x2, family = binomial, data = df)
 ```
-**Current Handling:** Lines 66-70 in burgle.R replace NAs with 0
-**Solution Status:** ✓ Already handled
+**Current Handling:** NA coefficients are preserved in the burgle object and replaced with 0 during the prediction stage in `draw_models()` function
+
+**Solution Status:** ✓ Handled during prediction stage
 
 ---
 

@@ -9,7 +9,9 @@ burgle.lm <- function(object, ...){
   cov <- stats::vcov(object)
   
   if(any(is.na(coef))){
-    warning("At least 1 coefficient has a value of NA")
+    na_names <- names(coef)[is.na(coef)]
+    warning("Coefficient(s) NA in linear model: ", paste(na_names, collapse=", "), 
+            ". These will be replaced with 0. This typically occurs due to multicollinearity or singularities in the design matrix.")
     coef[is.na(coef)] <- 0
     cov[is.na(cov)] <- 0
   }

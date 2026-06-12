@@ -68,12 +68,13 @@ bfit <- burgle(fit)
 fit <- lm(Sepal.Length ~ Petal.Width, weights = rep(1:5, each = 30), data = iris)
 bfit <- burgle(fit)
 ```
-**Issue:** Line 35 in burgle.R calculates MSE as:
+**Issue:** Line 10 in burgle_lm.R calculates RSS (Residual Sum of Squares) as:
 ```r
-mse <- sum(object$residuals ^2)/object$df.residual
+rss <- sum(object$residuals ^2)/object$df.residual
 ```
 - This is correct for weighted models (R handles it internally)
 - Weights are not stored but not needed for predictions
+- Note: The function returns `rss`, not `mse`
 
 **Solution Status:** ✓ Works correctly
 

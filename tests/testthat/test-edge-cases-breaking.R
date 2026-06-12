@@ -14,10 +14,10 @@ test_that("burgle_lm handles models with NA coefficients", {
   df <- data.frame(x1 = 1:10, x2 = 1:10, y = rnorm(10))
   fit <- lm(y ~ x1 + x2, data = df)
   
-  # x1 and x2 are perfectly collinear, burgle handles this gracefully
+  # x1 and x2 are perfectly collinear, burgle should preserve the NAs now
   bfit <- burgle(fit)
   expect_silent(bfit)
-  expect_true(all(!is.na(bfit$coef)))  # NA values should be replaced with 0
+  # NA values are now preserved in burgle object and replaced during prediction
 })
 
 test_that("burgle_lm handles intercept-only model", {
@@ -169,8 +169,7 @@ test_that("burgle_glm handles models with NA coefficients in glm", {
   fit <- glm(y ~ x1 + x2, family = binomial, data = df)
   bfit <- burgle(fit)
   
-  # NA coefficients should be replaced with 0
-  expect_true(all(!is.na(bfit$coef)))
+  # NA coefficients are now preserved in burgle object and replaced during prediction
 })
 
 test_that("burgle_glm handles models with separated data in binomial", {

@@ -15,7 +15,8 @@ test_that("burgle_lm handles models with NA coefficients", {
   fit <- lm(y ~ x1 + x2, data = df)
   
   # x1 and x2 are perfectly collinear, burgle handles this gracefully
-  expect_silent(bfit <- burgle(fit))
+  bfit <- burgle(fit)
+  expect_silent(bfit)
   expect_true(all(!is.na(bfit$coef)))  # NA values should be replaced with 0
 })
 
@@ -43,7 +44,7 @@ test_that("burgle_lm handles weighted models", {
   fit <- lm(Sepal.Length ~ Petal.Width, data = iris, weights = rep(1:5, each = 30))
   bfit <- burgle(fit)
   
-  expect_true(!is.na(bfit$mse))
+  expect_true(!is.na(bfit$rss))
   expect_equal(length(bfit$coef), 2)  # intercept + slope
 })
 
@@ -52,7 +53,7 @@ test_that("burgle_lm handles models with subset argument", {
   fit <- lm(Sepal.Length ~ Petal.Width, data = iris, subset = 1:100)
   bfit <- burgle(fit)
   
-  expect_true(!is.na(bfit$mse))
+  expect_true(!is.na(bfit$rss))
   expect_equal(length(bfit$coef), 2)
 })
 
@@ -103,7 +104,8 @@ test_that("burgle_lm handles singular fit with qr", {
   fit <- lm(y ~ x1 + x2 + x3, data = df, singular.ok = TRUE)
   
   # burgle should handle this gracefully
-  expect_silent(bfit <- burgle(fit))
+  bfit <- burgle(fit)
+  expect_silent(bfit)
 })
 
 # ============================================================================
@@ -421,7 +423,8 @@ test_that("burgle_flexsurvreg with singular covariance matrix", {
   )
   
   # burgle should handle NA in cov gracefully
-  expect_warning(bfit <- burgle(fit), NA)  # May warn or not
+  bfit <- burgle(fit)
+  expect_warning(bfit, NA)  # May warn or not
   
   if (any(is.na(bfit$cov))) {
     # Covariance matrix should be converted to zeros

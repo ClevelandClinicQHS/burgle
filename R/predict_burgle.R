@@ -88,6 +88,28 @@ draw_models <- function(object, original = T, draws = 1, seed= NULL){
     set.seed(seed = seed)
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }
+  
+  # Replace NA coefficients with 0 in the predict stage
+  if(!is.null(dim(models))){
+    # Multiple models case (draws > 1)
+    na_mask <- is.na(models)
+    if(any(na_mask)){
+      na_names <- colnames(models)[colSums(na_mask) > 0]
+      warning("Coefficient(s) NA in model: ", paste(na_names, collapse=", "), 
+              ". These will be replaced with 0 during prediction. This typically occurs due to multicollinearity or singularities in the design matrix.")
+      models[na_mask] <- 0
+    }
+  }else{
+    # Single model case (original = TRUE or draws = 1)
+    na_mask <- is.na(models)
+    if(any(na_mask)){
+      na_names <- names(models)[na_mask]
+      warning("Coefficient(s) NA in model: ", paste(na_names, collapse=", "), 
+              ". These will be replaced with 0 during prediction. This typically occurs due to multicollinearity or singularities in the design matrix.")
+      models[na_mask] <- 0
+    }
+  }
+  
   return(models)
 }
 

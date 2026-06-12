@@ -17,7 +17,10 @@ test_that("burgle_lm handles models with NA coefficients", {
   # x1 and x2 are perfectly collinear, burgle should preserve the NAs now
   bfit <- burgle(fit)
   expect_silent(bfit)
-  # NA values are now preserved in burgle object and replaced during prediction
+  # NA values are now preserved in burgle object
+  if(any(is.na(stats::coef(fit)))){
+    expect_true(any(is.na(bfit$coef)))  # Verify NA preservation
+  }
 })
 
 test_that("burgle_lm handles intercept-only model", {
@@ -44,7 +47,7 @@ test_that("burgle_lm handles weighted models", {
   fit <- lm(Sepal.Length ~ Petal.Width, data = iris, weights = rep(1:5, each = 30))
   bfit <- burgle(fit)
   
-  expect_true(!is.na(bfit$rss))
+  expect_true(!is.na(bfit$mse))
   expect_equal(length(bfit$coef), 2)  # intercept + slope
 })
 
@@ -53,7 +56,7 @@ test_that("burgle_lm handles models with subset argument", {
   fit <- lm(Sepal.Length ~ Petal.Width, data = iris, subset = 1:100)
   bfit <- burgle(fit)
   
-  expect_true(!is.na(bfit$rss))
+  expect_true(!is.na(bfit$mse))
   expect_equal(length(bfit$coef), 2)
 })
 
@@ -170,6 +173,9 @@ test_that("burgle_glm handles models with NA coefficients in glm", {
   bfit <- burgle(fit)
   
   # NA coefficients are now preserved in burgle object and replaced during prediction
+  if(any(is.na(stats::coef(fit)))){
+    expect_true(any(is.na(bfit$coef)))  # Verify NA preservation
+  }
 })
 
 test_that("burgle_glm handles models with separated data in binomial", {

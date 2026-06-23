@@ -7,6 +7,8 @@
 \alias{burgle}
 \alias{burgle.lm}
 \alias{burgle.glm}
+\alias{burgle.glmerMod}
+\alias{burgle.lmerMod}
 \alias{burgle.CauseSpecificCox}
 \alias{burgle.cph}
 \alias{burgle.flexsurvreg}
@@ -20,6 +22,10 @@ burgle(object, ...)
 \method{burgle}{lm}(object, ...)
 
 \method{burgle}{glm}(object, ...)
+
+\method{burgle}{glmerMod}(object, ...)
+
+\method{burgle}{lmerMod}(object, ...)
 
 \method{burgle}{CauseSpecificCox}(object, ...)
 

@@ -77,20 +77,6 @@ rsamp <- function(FUN, limits, ...){
   return(y)
 }
 
-#' Predict for burgle methods
-#'
-#' @rdname predict_burgle
-draw_models <- function(object, original = T, draws = 1, seed= NULL){
-  if(original){
-    models <- object$coef
-  }else{
-    if(draws <1|is.na(draws)){stop("draws must be at least 1")}
-    set.seed(seed = seed)
-    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
-  }
-  return(models)
-}
-
 #' @rdname simulate_models
 #' @param se whether or not to include the standard error in the simulations
 #' @param limits limits (minimum and maximum) for simulated response values
@@ -98,7 +84,7 @@ draw_models <- function(object, original = T, draws = 1, seed= NULL){
 #'
 #' @export
 simulate_models.burgle_lm <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", ...){
-  if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+  if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
@@ -193,5 +179,26 @@ drop_list <- function(x){
   return(x)
 }
 
+#' @export
+draw_models.burgle_lm <- function(object, original = TRUE, draws = 1, seed = NULL){
+  if(original){
+    models <- object$coef
+  }else{
+    if(draws < 1 || is.na(draws)){stop("draws must be at least 1")}
+    set.seed(seed = seed)
+    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
+  }
+  return(models)
+}
 
-
+#' @export
+draw_models.burgle_glm <- function(object, original = TRUE, draws = 1, seed = NULL){
+  if(original){
+    models <- object$coef
+  }else{
+    if(draws < 1 || is.na(draws)){stop("draws must be at least 1")}
+    set.seed(seed = seed)
+    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
+  }
+  return(models)
+}

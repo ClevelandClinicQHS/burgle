@@ -1,9 +1,23 @@
 #' @rdname burgle_
 #'
+#' @param lambda for glmnet, either "min" (default) or a specific lambda value
+#'
 #' @export
-burgle.glmnet <- function(object, ...){
-  # Extract coefficients at lambda.min (default behavior for glmnet)
-  coef <- as.numeric(coef(object, s = object$lambda.min)[-1])
+burgle.glmnet <- function(object, lambda = "min", ...){
+  # Determine lambda value to use
+  if(is.character(lambda)){
+    lambda <- tolower(lambda)
+    if(lambda == "min"){
+      lambda_val <- object$lambda.min
+    }else{
+      stop(paste("Unknown lambda choice:", lambda))
+    }
+  }else{
+    lambda_val <- lambda
+  }
+  
+  # Extract coefficients at chosen lambda
+  coef <- as.numeric(coef(object, s = lambda_val)[-1])
   
   # glmnet does not provide covariance matrix - set to zero matrix
   # This means draw_models will only return the original coefficients
@@ -13,6 +27,9 @@ burgle.glmnet <- function(object, ...){
   family <- object$call$family
   if(is.null(family)) family <- "gaussian"
   
+  # Get inverse link function based on family
+  inv_link <- get_inv_link(family)
+  
   # For gaussian, use MSE from model; for others, set to 0
   mse <- 0
   
@@ -20,9 +37,10 @@ burgle.glmnet <- function(object, ...){
     "coef" = coef,
     "cov" = cov,
     "mse" = mse,
-    "lambda" = object$lambda.min,
+    "lambda_value" = lambda_val,
     "family" = family,
-    "nfeatures" = nrow(object$beta)
+    "nfeatures" = nrow(object$beta),
+    "inv_link" = inv_link
   )
   
   class(l) <- "burgle_glmnet"
@@ -32,12 +50,29 @@ burgle.glmnet <- function(object, ...){
 
 #' @rdname burgle_
 #'
+#' @param lambda for cv.glmnet, either "lambda.1se" (default), "lambda.min", or a specific lambda value
+#'
 #' @export
-burgle.cv.glmnet <- function(object, lambda_choice = "lambda.1se", ...){
+burgle.cv.glmnet <- function(object, lambda = "lambda.1se", ...){
   # Get the chosen lambda
-  lambda_val <- object[[lambda_choice]]
+  if(is.character(lambda)){
+    lambda <- tolower(lambda)
+    if(lambda == "lambda.1se"){
+      lambda_val <- object$lambda.1se
+      lambda_choice <- "lambda.1se"
+    }else if(lambda == "lambda.min"){
+      lambda_val <- object$lambda.min
+      lambda_choice <- "lambda.min"
+    }else{
+      stop(paste("Unknown lambda choice:", lambda))
+    }
+  }else{
+    lambda_val <- lambda
+    lambda_choice <- NA_character_
+  }
+  
   if(is.null(lambda_val)){
-    stop(paste("lambda_choice '", lambda_choice, "' not found in cv.glmnet object", sep=""))
+    stop(paste("lambda choice '", lambda, "' not found in cv.glmnet object", sep=""))
   }
   
   # Extract coefficients at the chosen lambda
@@ -50,6 +85,9 @@ burgle.cv.glmnet <- function(object, lambda_choice = "lambda.1se", ...){
   family <- object$call$family
   if(is.null(family)) family <- "gaussian"
   
+  # Get inverse link function based on family
+  inv_link <- get_inv_link(family)
+  
   # For gaussian, use MSE from model; for others, set to 0
   mse <- 0
   
@@ -57,11 +95,12 @@ burgle.cv.glmnet <- function(object, lambda_choice = "lambda.1se", ...){
     "coef" = coef,
     "cov" = cov,
     "mse" = mse,
-    "lambda" = lambda_val,
+    "lambda_value" = lambda_val,
     "lambda_choice" = lambda_choice,
     "family" = family,
     "nfeatures" = nrow(object$glmnet.fit$beta),
-    "cv_object" = object
+    "cv_object" = object,
+    "inv_link" = inv_link
   )
   
   class(l) <- "burgle_cv.glmnet"
@@ -69,9 +108,42 @@ burgle.cv.glmnet <- function(object, lambda_choice = "lambda.1se", ...){
   l
 }
 
+# Internal helper function to get inverse link function from family specification
+get_inv_link <- function(family){
+  if(is.character(family)){
+    family <- tolower(family)
+  }
+  
+  if(grepl("gaussian", family)){
+    inv_link <- function(x) x
+  }else if(grepl("binomial", family)){
+    inv_link <- function(x) 1 / (1 + exp(-x))
+  }else if(grepl("poisson", family)){
+    inv_link <- function(x) exp(x)
+  }else if(grepl("multinomial", family)){
+    # Softmax for multinomial
+    inv_link <- function(x) {
+      if(is.list(x)){
+        lapply(x, function(xi) {
+          exp(xi) / rowSums(exp(xi))
+        })
+      }else if(is.matrix(x)){
+        exp(x) / rowSums(exp(x))
+      }else{
+        exp(x) / sum(exp(x))
+      }
+    }
+  }else{
+    stop(paste("Family", family, "not supported"))
+  }
+  
+  return(inv_link)
+}
+
 # Internal function for drawing models from glmnet objects
 # For glmnet, we don't have a covariance matrix, so we just return the original coefficients
-draw_models_glmnet <- function(object, original = TRUE, draws = 1, seed = NULL){
+#' @export
+draw_models.burgle_glmnet <- function(object, original = TRUE, draws = 1, seed = NULL){
   if(original){
     models <- object$coef
   }else{
@@ -81,6 +153,34 @@ draw_models_glmnet <- function(object, original = TRUE, draws = 1, seed = NULL){
     models <- matrix(object$coef, nrow = draws, ncol = length(object$coef), byrow = TRUE)
   }
   return(models)
+}
+
+#' @export
+draw_models.burgle_cv.glmnet <- function(object, original = TRUE, draws = 1, seed = NULL){
+  # cv.glmnet objects use the same logic as glmnet objects
+  if(original){
+    models <- object$coef
+  }else{
+    # For glmnet, we can't sample from a zero covariance matrix
+    # Instead, just return the original coefficients multiple times
+    if(draws < 1 | is.na(draws)) stop("draws must be at least 1")
+    models <- matrix(object$coef, nrow = draws, ncol = length(object$coef), byrow = TRUE)
+  }
+  return(models)
+}
+
+#' Draw Models
+#'
+#' Generic function to draw models from burgle objects
+#'
+#' @param object a burgle object
+#' @param original whether to return the original model
+#' @param draws number of draws to generate
+#' @param seed random seed for reproducibility
+#'
+#' @export
+draw_models <- function(object, original = TRUE, draws = 1, seed = NULL){
+  UseMethod("draw_models")
 }
 
 #' @name predict_burgle
@@ -94,7 +194,7 @@ predict.burgle_glmnet <- function(object, newdata, original = TRUE, draws = 1, s
     stop("Can only have one draw from the original model")
   }
   
-  models <- draw_models_glmnet(object, original = original, draws = draws, seed = seed)
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
   
   pn <- simulate_models(object, models = models, newdata = newdata, sims = sims, type = type, se = se, seed = seed, ...)
   
@@ -112,7 +212,7 @@ predict.burgle_cv.glmnet <- function(object, newdata, original = TRUE, draws = 1
     stop("Can only have one draw from the original model")
   }
   
-  models <- draw_models_glmnet(object, original = original, draws = draws, seed = seed)
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
   
   pn <- simulate_models(object, models = models, newdata = newdata, sims = sims, type = type, se = se, seed = seed, ...)
   
@@ -148,22 +248,18 @@ simulate_models.burgle_glmnet <- function(object, models = NULL, newdata, type =
   
   # For response type, apply inverse link based on family
   if(type == "response"){
+    # Apply inverse link
+    if(is.list(preds)){
+      pn <- lapply(preds, object$inv_link)
+    }else{
+      pn <- object$inv_link(preds)
+    }
+    
     family <- object$family
     if(is.character(family)) family <- tolower(family)
     
-    if(grepl("gaussian", family)){
-      pn <- preds
-    }
-    else if(grepl("binomial", family)){
-      # Apply logistic inverse link
-      inv_link <- function(x) 1 / (1 + exp(-x))
-      if(is.list(preds)){
-        pn <- lapply(preds, inv_link)
-      }else{
-        pn <- inv_link(preds)
-      }
-      
-      # Simulate binomial responses
+    # Simulate binomial responses if needed
+    if(grepl("binomial", family)){
       if(is.list(pn)){
         pn <- lapply(pn, simulate_responses_binom, sims = 1)
       }else{
@@ -173,22 +269,6 @@ simulate_models.burgle_glmnet <- function(object, models = NULL, newdata, type =
       pn <- lapply(pn, drop_list)
       pn <- drop_list(pn)
       return(pn)
-    }
-    else if(grepl("poisson", family)){
-      # Apply exponential inverse link
-      inv_link <- function(x) exp(x)
-      if(is.list(preds)){
-        pn <- lapply(preds, inv_link)
-      }else{
-        pn <- inv_link(preds)
-      }
-    }
-    else if(grepl("multinomial", family)){
-      # Apply softmax for multinomial
-      stop("Multinomial glmnet not yet supported")
-    }
-    else{
-      stop(paste("Family", family, "not yet supported for burgle.glmnet"))
     }
     
     return(drop_list(pn))
@@ -225,22 +305,18 @@ simulate_models.burgle_cv.glmnet <- function(object, models = NULL, newdata, typ
   
   # For response type, apply inverse link based on family
   if(type == "response"){
+    # Apply inverse link
+    if(is.list(preds)){
+      pn <- lapply(preds, object$inv_link)
+    }else{
+      pn <- object$inv_link(preds)
+    }
+    
     family <- object$family
     if(is.character(family)) family <- tolower(family)
     
-    if(grepl("gaussian", family)){
-      pn <- preds
-    }
-    else if(grepl("binomial", family)){
-      # Apply logistic inverse link
-      inv_link <- function(x) 1 / (1 + exp(-x))
-      if(is.list(preds)){
-        pn <- lapply(preds, inv_link)
-      }else{
-        pn <- inv_link(preds)
-      }
-      
-      # Simulate binomial responses
+    # Simulate binomial responses if needed
+    if(grepl("binomial", family)){
       if(is.list(pn)){
         pn <- lapply(pn, simulate_responses_binom, sims = 1)
       }else{
@@ -250,21 +326,6 @@ simulate_models.burgle_cv.glmnet <- function(object, models = NULL, newdata, typ
       pn <- lapply(pn, drop_list)
       pn <- drop_list(pn)
       return(pn)
-    }
-    else if(grepl("poisson", family)){
-      # Apply exponential inverse link
-      inv_link <- function(x) exp(x)
-      if(is.list(preds)){
-        pn <- lapply(preds, inv_link)
-      }else{
-        pn <- inv_link(preds)
-      }
-    }
-    else if(grepl("multinomial", family)){
-      stop("Multinomial glmnet not yet supported")
-    }
-    else{
-      stop(paste("Family", family, "not yet supported for burgle.cv.glmnet"))
     }
     
     return(drop_list(pn))

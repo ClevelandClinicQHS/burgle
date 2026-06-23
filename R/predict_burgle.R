@@ -178,3 +178,27 @@ drop_list <- function(x){
   if(is.list(x) & length(x) == 1L) x <- x[[1]]
   return(x)
 }
+
+#' @export
+draw_models.burgle_lm <- function(object, original = TRUE, draws = 1, seed = NULL){
+  if(original){
+    models <- object$coef
+  }else{
+    if(draws <1|is.na(draws)){stop("draws must be at least 1")}
+    set.seed(seed = seed)
+    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
+  }
+  return(models)
+}
+
+#' @export
+draw_models.burgle_glm <- function(object, original = TRUE, draws = 1, seed = NULL){
+  if(original){
+    models <- object$coef
+  }else{
+    if(draws <1|is.na(draws)){stop("draws must be at least 1")}
+    set.seed(seed = seed)
+    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
+  }
+  return(models)
+}

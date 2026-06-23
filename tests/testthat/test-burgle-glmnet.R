@@ -12,7 +12,7 @@ test_that("burgle.glmnet preserves coefficients", {
   fit <- glmnet::glmnet(X, y, family = "gaussian")
   bfit <- burgle(fit)
   
-  expect_named(bfit, c("coef", "cov", "mse", "lambda", "family", "nfeatures"))
+  expect_named(bfit, c("coef", "cov", "mse", "lambda_value", "family", "nfeatures", "inv_link"))
   expect_equal(length(bfit$coef), 4)
 })
 
@@ -43,7 +43,7 @@ test_that("burgle.cv.glmnet preserves coefficients at lambda.1se", {
   cvfit <- glmnet::cv.glmnet(X, y, family = "gaussian")
   bcvfit <- burgle(cvfit)
   
-  expect_named(bcvfit, c("coef", "cov", "mse", "lambda", "lambda_choice", "family", "nfeatures", "cv_object"))
+  expect_named(bcvfit, c("coef", "cov", "mse", "lambda_value", "lambda_choice", "family", "nfeatures", "cv_object", "inv_link"))
   expect_equal(bcvfit$lambda_choice, "lambda.1se")
   expect_length(bcvfit$coef, 4)
 })
@@ -56,10 +56,10 @@ test_that("burgle.cv.glmnet can use lambda.min", {
   y <- iris$Sepal.Length
   
   cvfit <- glmnet::cv.glmnet(X, y, family = "gaussian")
-  bcvfit <- burgle(cvfit, lambda_choice = "lambda.min")
+  bcvfit <- burgle(cvfit, lambda = "lambda.min")
   
   expect_equal(bcvfit$lambda_choice, "lambda.min")
-  expect_equal(bcvfit$lambda, cvfit$lambda.min)
+  expect_equal(bcvfit$lambda_value, cvfit$lambda.min)
 })
 
 ## ##############################################################################

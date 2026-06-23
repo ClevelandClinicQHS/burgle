@@ -53,7 +53,13 @@ burgle.glmnet <- function(object, lambda = "min", ...){
 #' @param lambda for cv.glmnet, either "lambda.1se" (default), "lambda.min", or a specific lambda value
 #'
 #' @export
-burgle.cv.glmnet <- function(object, lambda = "lambda.1se", ...){
+burgle.cv.glmnet <- function(object, lambda = "lambda.1se", lambda_choice = NULL, ...){
+  # Support backward compatibility for lambda_choice parameter
+  if(!is.null(lambda_choice)){
+    warning("lambda_choice is deprecated, use lambda instead")
+    lambda <- lambda_choice
+  }
+  
   # Get the chosen lambda
   if(is.character(lambda)){
     lambda <- tolower(lambda)

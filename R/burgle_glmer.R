@@ -122,7 +122,7 @@ draw_models.burgle_glmer <- function(object, original = TRUE, draws = 1, seed = 
   if(original){
     models <- object$coef
   }else{
-    if(draws <1|is.na(draws)){stop("draws must be at least 1")}
+    if(draws < 1 || is.na(draws)){stop("draws must be at least 1")}
     set.seed(seed = seed)
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }

@@ -1,6 +1,6 @@
 #' @rdname burgle_
 #'
-#' @param lambda for glmnet, either "min" (default) or a specific lambda value
+#' @param lambda for glmnet, either "min" (default), "1se", or a specific lambda value
 #'
 #' @export
 burgle.glmnet <- function(object, lambda = "min", ...){
@@ -8,12 +8,25 @@ burgle.glmnet <- function(object, lambda = "min", ...){
   if(is.character(lambda)){
     lambda <- tolower(lambda)
     if(lambda == "min"){
-      lambda_val <- object$lambda.min
+      # For regular glmnet, find the lambda with minimum value
+      lambda_val <- min(object$lambda)
+    }else if(lambda == "1se"){
+      # This is a common convention but not standard for glmnet
+      # Use the lambda one standard error above minimum
+      stop("lambda = '1se' is only available for cv.glmnet objects. Use burgle.cv.glmnet instead.")
     }else{
       stop(paste("Unknown lambda choice:", lambda))
     }
+  }else if(is.numeric(lambda)){
+    # User specified a specific lambda value
+    if(!lambda %in% object$lambda){
+      warning(paste("Specified lambda", lambda, "not found in glmnet lambda sequence. Using closest value."))
+      lambda_val <- object$lambda[which.min(abs(object$lambda - lambda))]
+    }else{
+      lambda_val <- lambda
+    }
   }else{
-    lambda_val <- lambda
+    stop("lambda must be 'min' or a numeric value")
   }
   
   # Extract coefficients at chosen lambda
@@ -155,7 +168,7 @@ draw_models.burgle_glmnet <- function(object, original = TRUE, draws = 1, seed =
   }else{
     # For glmnet, we can't sample from a zero covariance matrix
     # Instead, just return the original coefficients multiple times
-    if(draws < 1 | is.na(draws)) stop("draws must be at least 1")
+    if(draws < 1 || is.na(draws)) stop("draws must be at least 1")
     models <- matrix(object$coef, nrow = draws, ncol = length(object$coef), byrow = TRUE)
   }
   return(models)
@@ -169,7 +182,7 @@ draw_models.burgle_cv.glmnet <- function(object, original = TRUE, draws = 1, see
   }else{
     # For glmnet, we can't sample from a zero covariance matrix
     # Instead, just return the original coefficients multiple times
-    if(draws < 1 | is.na(draws)) stop("draws must be at least 1")
+    if(draws < 1 || is.na(draws)) stop("draws must be at least 1")
     models <- matrix(object$coef, nrow = draws, ncol = length(object$coef), byrow = TRUE)
   }
   return(models)

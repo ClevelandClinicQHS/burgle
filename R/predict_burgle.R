@@ -184,7 +184,7 @@ draw_models.burgle_lm <- function(object, original = TRUE, draws = 1, seed = NUL
   if(original){
     models <- object$coef
   }else{
-    if(draws <1|is.na(draws)){stop("draws must be at least 1")}
+    if(draws < 1 || is.na(draws)){stop("draws must be at least 1")}
     set.seed(seed = seed)
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }
@@ -196,7 +196,7 @@ draw_models.burgle_glm <- function(object, original = TRUE, draws = 1, seed = NU
   if(original){
     models <- object$coef
   }else{
-    if(draws <1|is.na(draws)){stop("draws must be at least 1")}
+    if(draws < 1 || is.na(draws)){stop("draws must be at least 1")}
     set.seed(seed = seed)
     models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
   }

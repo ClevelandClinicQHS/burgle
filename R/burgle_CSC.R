@@ -82,7 +82,7 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
       str1 <- o1[str_ck]
       str_lv <- factor(str1[[1]])
       o_xlvs[[i]] <- o1 <- o1[!str_ck]
-      str1n <- names(str1)
+      str1n <- gsub(".*::", "", names(str1))
       str1_v <- strsplit(gsub("strata|\\)|\\(", "", str1n), ", ")[[1]]
       vn <- length(str1_v)
       str1_ls <- strsplit(str1[[1]], ", ")

@@ -81,6 +81,14 @@ rsamp <- function(FUN, limits, ...){
 #'
 #' @rdname predict_burgle
 draw_models <- function(object, original = T, draws = 1, seed= NULL){
+  if (is.null(object$coef) || length(object$coef) == 0L) {
+    if (original) {
+      return(0L)
+    }
+    if (draws <1|is.na(draws)){stop("draws must be at least 1")}
+    return(matrix(0, nrow = draws))
+  }
+
   if (original){
     models <- object$coef
   } else {
@@ -214,6 +222,5 @@ drop_list <- function(x){
   if(is.list(x) & length(x) == 1L) x <- x[[1]]
   return(x)
 }
-
 
 

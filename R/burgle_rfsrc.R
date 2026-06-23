@@ -11,7 +11,7 @@ burgle.rfsrc <- function(object, ...){
   # new_rf$yvar[,] <- 1
   ## This is really makes no sense, but I think it works since the newdata is always a test dataset.
   if(class3 %in% c("surv", "surv-CR")){
-    new_rf$yvar <- new_rf$yvar[1,]
+    new_rf$yvar <- new_rf$yvar[1,, drop = FALSE]
     new_rf$yvar[,] <- 1
   }else{
     new_rf$yvar <- NULL
@@ -90,7 +90,7 @@ predict.burgle_rfsrc <- function(object, newdata = NULL, type = "risk", sims = 1
 
   }
   if(class3 == "surv-CR"){
-    if(is.na(cause) | is.na(times)) stop("Please specificy a cause and time")
+    if(anyNA(c(cause, times))) stop("Please specificy a cause and time")
 
     odds <- op1$cif[, , cause, drop = TRUE]
   }

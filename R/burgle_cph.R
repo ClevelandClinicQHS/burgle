@@ -8,11 +8,11 @@ burgle.cph <- function(object, ...){
   attr(terms, ".Environment") <- NULL
 
 
-  if (!is.null(object$xlevels) && (!is.null(object$strata) |
-                                   any(grepl("strata", names(object$xlevels))))) {
+  has_strata <- !is.null(object$strata) || "strata" %in% colnames(bh)
+  if (has_strata) {
     bh0 <- bh[, c("hazard", "strata")]
     bh <- bh[!duplicated(bh0), ]
-    terms <- drop.special(terms, attr(terms, "specials")$strata)
+    terms <- strip_strata_terms(terms)
 
   }
   else {

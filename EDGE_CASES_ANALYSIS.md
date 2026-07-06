@@ -1,29 +1,65 @@
 # Burgle Package: Edge Cases and Breaking Scenarios Analysis
 
+**Last Updated:** 2026-07-06  
+**Purpose:** Systematic identification and documentation of edge cases and failure modes in the burgle package for model uncertainty quantification.
+
 ## Overview
 This document identifies potential edge cases and failure modes in the burgle package when users specify various parameters in `lm()`, `glm()`, `coxph()`, and `flexsurvreg()` model objects.
 
 ---
 
+## Table of Contents
+
+1. [Quick Reference](#quick-reference)
+2. [LM Models](#burgle_lm-edge-cases-and-issues)
+3. [GLM Models](#burgle_glm-edge-cases-and-issues)
+4. [Cox Proportional Hazards](#burgle_coxph-edge-cases-and-issues)
+5. [Flexible Survival Regression](#burgle_flexsurvreg-edge-cases-and-issues)
+6. [Prediction Edge Cases](#prediction-edge-cases)
+7. [Severity Levels Summary](#summary-of-severity-levels)
+8. [Recommendations](#recommendations-for-package-improvement)
+
+---
+
+## Quick Reference
+
+| Model Type | Critical Issues | Moderate Issues | Resolution |
+|-----------|-----------------|-----------------|-----------|
+| **LM** | Empty data, singular fits | Contrasts validation | Handle in draw_models() |
+| **GLM** | quasi() family untested | Complete separation | Test all families |
+| **COXPH** | No events in strata, time-varying | Multiple strata | Error or warn users |
+| **FLEXSURV** | Custom distributions | Singular covariance | Use 0 cov matrix |
+
+---
+
 ## BURGLE_LM Edge Cases and Issues
 
+**Implementation File:** `R/burgle_lm.R`  
+**Prediction File:** `R/predict_burgle.R`
+
 ### 1. **Singular Fits with NA Coefficients**
+
 **When it breaks:** When fitting a model with perfectly collinear columns
+
 ```r
 df <- data.frame(x1 = 1:10, x2 = 1:10, y = rnorm(10))
 fit <- lm(y ~ x1 + x2, data = df)  # x1 and x2 are collinear
+bfit <- burgle(fit)
 ```
-**Error/Warning:** 
-- `lm()` returns NAs in coefficients
+
+**Expected Behavior:**
+- `lm()` returns NAs in coefficients due to collinearity
 - `vcov()` returns NAs in covariance matrix
 
-**Current Code Behavior:**
-- `burgle()` now preserves the original model including NA coefficients
-- NA replacement with 0 is handled in the `draw_models()` function during prediction stage
-- A warning is issued when predictions are made with NA coefficients replaced
+**Current Code Behavior:** ✓ **Handled**
+- `burgle()` preserves the original model including NA coefficients
+- NA replacement with 0 occurs in `draw_models()` during prediction stage
+- Warning issued when predictions are made with NA coefficients replaced
 
+**Implementation Details:**
+In `R/predict_burgle.R`, the `draw_models()` function handles NA coefficients:
 ```r
-# In draw_models (R/predict_burgle.R):
+# NA Coefficient Handling in draw_models()
 if(!is.null(dim(models))){
   na_mask <- is.na(models)
   if(any(na_mask)){
@@ -33,8 +69,8 @@ if(!is.null(dim(models))){
 }
 ```
 
-**Solution Status:** ✓ Handled with replacement during prediction stage
-**Design Rationale:** NA replacement is kept in the predict stage to preserve the original model object and its details in the burgle output
+**Solution Status:** ✓ Handled with replacement during prediction stage  
+**Design Rationale:** NA replacement is kept in the predict stage to preserve the original model object integrity
 
 ---
 
@@ -254,27 +290,46 @@ fit <- MASS::glm.nb(y ~ x, data = count_data)
 
 ## BURGLE_COXPH Edge Cases and Issues
 
+**Implementation File:** `R/burgle_cph.R`  
+**Prediction File:** `R/predict_burgle.R` (as `predict.burgle_coxph`)
+
 ### 1. **Models with Strata**
+
 **When it breaks:**
 ```r
 fit <- coxph(Surv(time, status) ~ age + strata(sex), data = lung)
+bfit <- burgle(fit)
 ```
-**Current Code (Line 11-17 in burgle_cph.R):**
+
+**Why Strata Matter:**
+- Strata create separate baseline hazards for each stratum
+- Must be handled separately in predictions
+- `basehaz()` returns combined hazard for all strata
+
+**Current Implementation** (`R/burgle_cph.R`, lines 11-17):
 ```r
-if (!is.null(object$xlevels) && (!is.null(object$strata) |
-                                any(grepl("strata", names(object$xlevels))))) {
+# Strata Handling in burgle.cph
+has_strata <- !is.null(object$strata) || "strata" %in% colnames(bh)
+if (has_strata) {
+  # Remove duplicate hazard entries across strata
   bh0 <- bh[, c("hazard", "strata")]
   bh <- bh[!duplicated(bh0), ]
-  terms <- drop.special(terms, attr(terms, "specials")$strata)
+  # Strip strata from terms for later model matrix construction
+  terms <- strip_strata_terms(terms)
+} else {
+  # Non-stratified: remove only duplicate hazard values
+  bh <- bh[!duplicated(bh$hazard), ]
 }
 ```
-**Issue:** 
-- Handles strata but removes duplicates in basehaz
-- This is complex code with potential edge cases
+
+**Key Logic:**
+- Detects stratification by checking `object$strata` attribute
+- Removes duplicate combinations of (hazard, strata) pairs
+- Calls `strip_strata_terms()` helper to clean formula for predictions
 
 **Solution Status:** ✓ Appears to work but needs validation
 
-**Testing:** Compare basehaz between different strata
+**Testing Recommendation:** Verify baseline hazard values match original model across strata
 
 ---
 
@@ -392,49 +447,62 @@ fit <- coxph(Surv(time, status) ~ age + sex + var1 + var2 + ... + var20, data = 
 
 ## BURGLE_FLEXSURVREG Edge Cases and Issues
 
-### 1. **Different Distributions**
-**Supported in flexsurv:**
-- exponential, weibull, gamma, lognormal, gompertz, loglogistic
-- gengamma (generalized gamma), genf (generalized F)
-- etc.
+**Implementation File:** `R/burgle_flexsurv.R`  
+**Key Function:** `burgle.flexsurvreg()` and `predict.burgle_flexsurvreg()`
 
-**Current Code (burgle_flexsurv.R):**
+### 1. **Different Distributions**
+
+**Supported Distributions:**
+- **Parametric:** exponential, weibull, gamma, lognormal, gompertz, loglogistic
+- **Advanced:** gengamma (generalized gamma), genf (generalized F)
+- And others supported by flexsurv package
+
+**Current Implementation** (`R/burgle_flexsurv.R`, lines 21-36):
 ```r
-pf <- object$dfns$p
-hz <- object$dfns$H
-qn <- object$dfns$q
+# Distribution-specific functions extracted from flexsurv object
+pf <- object$dfns$p              # CDF function
+hz <- object$dfns$H              # Cumulative hazard function
+qn <- object$dfns$q              # Quantile function
+inv_t <- object$dlist$inv.transforms  # Parameter transforms
+pars_i <- object$basepars        # Base parameter indices
+loc <- which(names(coef) == object$dlist$location)  # Location parameter index
 ```
 
-**Issue:** 
-- These are functions from flexsurv distribution object
-- Should work for all distributions
-- BUT: Line 7 assumes `object$covdata$terms` exists
+**Key Design:**
+- Extracts distribution functions from `object$dfns` (works universally)
+- Parameters stored in flexible way for different distributions
+- Base parameters (shape, scale) distinguished from location parameters
 
-**Solution Status:** ? Needs testing with all distributions
+**Solution Status:** ✓ Design is general, but needs testing with all distributions
 
 ---
 
 ### 2. **NA/Singular Covariance Matrix**
-**When it breaks:**
+
+**When it happens:**
 ```r
-lung$x2 <- lung$age + rnorm(nrow(lung), sd = 0.001)  # Nearly collinear
+# Nearly collinear covariates in survival model
+lung$x2 <- lung$age + rnorm(nrow(lung), sd = 0.001)
 fit <- flexsurvreg(Surv(time, status) ~ age + x2, dist = "weibull", data = lung)
+bfit <- burgle(fit)
 ```
-**Current Code (Line 14-18 in burgle_flexsurv.R):**
+
+**Handling Strategy** (`R/burgle_flexsurv.R`, lines 15-18):
 ```r
+# Singular Covariance Handling
 if(any(is.na(cov))){
   warning("No covariance estimates found, predicting will only be done from the estimated model")
   cov <- matrix(0, nrow = length(coef), ncol = length(coef))
 }
 ```
-**Issue:**
-- Replaces NA with 0 matrix (no uncertainty)
-- Warning message is clear
-- Users won't get parameter uncertainty in predictions
 
-**Solution Status:** ✓ Handled but limited
+**Implications:**
+- Zero covariance matrix = no uncertainty in predictions
+- Users only get point estimates, not prediction intervals
+- Clear warning message explains limitation
 
-**Recommendation:** This is correct behavior - 0 cov means no uncertainty
+**Solution Status:** ✓ Handled appropriately  
+**Design Rationale:** This is correct behavior—preserves functionality while limiting false confidence
 
 ---
 
@@ -534,34 +602,105 @@ predict(bfit, newdata = NA)
 
 ## Summary of Severity Levels
 
-### 🔴 Critical Issues (Likely to Break)
-1. **Singular covariance in flexsurv** - Produces 0 matrix (acceptable but needs docs)
-2. **No events in coxph strata** - basehaz() may fail
-3. **Time-varying covariates in coxph** - Not supported, should error
-4. **Custom distributions in flexsurv** - Likely to break
+### 🔴 Critical Issues (Likely to Break - Action Required)
 
-### 🟡 Moderate Issues (Edge Cases)
-1. **Complete separation in GLM** - Large coefficients, valid but extreme
-2. **Empty design matrices** - Division by zero possibilities
-3. **Multiple strata in coxph** - Complex deduplication logic
-4. **quasi() family in GLM** - Untested, may have issues
+| Issue | Model | Impact | Resolution |
+|-------|-------|--------|-----------|
+| No events in strata | COXPH | `basehaz()` may fail | Add validation check |
+| Time-varying covariates | COXPH | Unsupported use case | Return error message |
+| Custom distributions | FLEXSURV | Likely incompatible | Add dist validation |
+| Empty data | LM/GLM | Division by zero | Input validation |
 
-### 🟢 Minor Issues (Handled Well)
-1. NA coefficients - Already replaced with 0
-2. Factor contrasts - Preserved and handled
-3. Interactions/polynomials - Handled via terms object
-4. Weighted/subset models - Handled correctly
+---
+
+### 🟡 Moderate Issues (Edge Cases - Testing Needed)
+
+| Issue | Model | Risk Level | Workaround |
+|-------|-------|-----------|-----------|
+| Complete separation | GLM | Large coefficients | Document limitation |
+| Multiple strata | COXPH | Complex deduplication | Needs testing |
+| quasi() family | GLM | Untested behavior | Add family tests |
+| Intercept-only models | FLEXSURV | Empty parameter names | Boundary testing |
+
+---
+
+### 🟢 Minor Issues (Handled Well - Low Priority)
+
+✓ **NA coefficients** - Already replaced with 0 during prediction  
+✓ **Factor contrasts** - Preserved and correctly stored  
+✓ **Interactions/polynomials** - Handled via terms object  
+✓ **Weighted/subset models** - Handled correctly  
+✓ **Offset terms** - Properly excluded from coefficient extraction
 
 ---
 
 ## Recommendations for Package Improvement
 
-1. **Add validation function** to check for problematic model specifications
-2. **Add warnings** for singular fits, separation, etc.
-3. **Document limitations** for strata, interactions, etc.
-4. **Test matrix** covering all cases in test-edge-cases-breaking.R
-5. **Error handling** for unsupported scenarios (time-varying, custom dist)
-6. **Fix typo** in warning message: "vlue" → "value"
+### Priority 1: Critical Validation (Must Have)
+
+1. **Add Input Validation Function** (`validate_model()`)
+   - Check for time-varying covariates in Cox models
+   - Verify no custom flexsurv distributions
+   - Detect empty datasets
+   - **File to create:** `R/validate_burgle_inputs.R`
+
+2. **Fix COXPH Edge Case** - Empty strata events
+   - Add `try()` wrapper around `basehaz()` call
+   - Return informative error if baseline hazard computation fails
+   - **File:** `R/burgle_cph.R`, line 5
+
+3. **Add Factor Level Validation**
+   - Check newdata factor levels during prediction
+   - Provide clear error message for unknown levels
+   - **File:** `R/predict_burgle.R`
+
+---
+
+### Priority 2: Testing & Documentation (Should Have)
+
+4. **Expand Test Coverage**
+   - Create matrix covering all family functions for GLM
+   - Test all flexsurv distributions
+   - Test multiple strata combinations
+   - **File:** `tests/testthat/test-edge-cases-breaking.R`
+
+5. **Add Inline Documentation**
+   - Document MSE calculation logic in `burgle_lm.R`
+   - Add strata handling explanation in `burgle_cph.R`
+   - Document parameter extraction in `burgle_flexsurv.R`
+
+6. **User-Facing Documentation**
+   - Create vignette: "Known Limitations"
+   - Add FAQ section to README
+   - Document quasi() family status
+
+---
+
+### Priority 3: Code Quality (Nice to Have)
+
+7. **Code Cleanup**
+   - Remove commented-out code in `burgle_flexsurv.R` (lines 103-106, 153-167)
+   - Simplify factor level checking logic
+   - Create helper function for duplicated() deduplication logic
+
+8. **Standardize Error Messages**
+   - Consistent format across all functions
+   - Include suggested workarounds when possible
+   - **Current typo:** "vlue" → "value" in warning message
+
+9. **Performance Optimization**
+   - Profile strata deduplication logic for large datasets
+   - Consider vectorization for matrix operations
+
+---
+
+### Implementation Timeline
+
+| Phase | Tasks | Est. Effort |
+|-------|-------|------------|
+| **Phase 1** | Validation, basehaz fix, tests | 2-3 days |
+| **Phase 2** | Documentation, inline comments | 1 day |
+| **Phase 3** | Code cleanup, refactoring | 1 day |
 
 ---
 

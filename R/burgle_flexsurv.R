@@ -3,33 +3,54 @@
 #' @export
 burgle.flexsurvreg <- function(object, ...){
 
+  # Extract regression coefficients (covariate effects only)
   coef <- stats::coef(object)
+  
+  # Extract formula terms from covariate structure
   terms <- object$covdata$terms
   terms <- stats::delete.response(terms)
 
+  # Handle zero or singular covariance matrix
   if (length(coef) == 0L) {
     cov <- matrix(0)
   }
   else {
     cov <- stats::vcov(object)
+    # If covariance estimation failed (e.g., from collinearity), set to 0 matrix
+    # This means predictions use only point estimates without uncertainty intervals
     if(any(is.na(cov))){
       warning("No covariance estimates found, predicting will only be done from the estimated model")
       cov <- matrix(0, nrow = length(coef), ncol = length(coef))
     }
   }
 
-  pf <- object$dfns$p
-  hz <- object$dfns$H
-  qn <- object$dfns$q
+  # Extract distribution functions (work for any flexsurv distribution)
+  # These are dynamically determined based on the specified distribution
+  pf <- object$dfns$p              # CDF function: P(T <= t)
+  hz <- object$dfns$H              # Cumulative hazard function: H(t)
+  qn <- object$dfns$q              # Quantile function: inverse of CDF
+  
+  # Unique event times from survival data
   unq <- sort(unique(object$data$Y[,"time"]))
+  
+  # Store factor levels and contrasts for prediction
   xlevels <- object$covdata$xlev
   contrasts <- attr(object$data$mml$mu, "contrasts")
+  
+  # Parameter transformation information
+  # Needed to backtransform parameters after simulation
   inv_t <- object$dlist$inv.transforms
-  pars_i <- object$basepars
+  pars_i <- object$basepars           # Distribution parameter indices (e.g., scale, shape)
+  
+  # Identify location parameter (typically mu or rate)
+  # Location parameter gets covariate effects applied to it
   loc <- which(names(coef) == object$dlist$location)
+  
+  # Other parameters (shape, scale, etc.) not affected by covariates
   opars_i <- setdiff(pars_i, loc)
 
-  l <- list(coef = coef, cov = cov,xlevels = xlevels, contrasts = contrasts,
+  # Assemble burgle object with distribution-specific information
+  l <- list(coef = coef, cov = cov, xlevels = xlevels, contrasts = contrasts,
             terms = terms,
             p_f = pf, p_h = hz, p_q = qn,
             e_times = unq,
@@ -48,48 +69,50 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
 
   if (!is.data.frame(newdata))
     stop("newdata must be an object of class data.frame")
+  
   nc <- names(object$coef)
   type <- match.arg(tolower(type), c("lp", "response", "risk", "time"))
-  # nl <- names(object$xlevels)
-  # ck0 <- nl %in% colnames(newdata)
-  # if (!all(ck0))
-  #   stop(paste(nl[!ck0], "is not present in newdata"))
-  # ulv <- lapply(nl, function(x) unique(newdata[, x])[[1]])
-  # ck1s <- mapply(function(x, y) (y %in% x), object$xlevels,
-  #                ulv, SIMPLIFY = FALSE)
-  # ck1 <- sapply(ck1s, all)
-  # if (length(ck1) > 0L) {
-  #   if (!all(ck1)) {
-  #     obs <- min(which(!ck1))
-  #     stop(paste0("variable ", names(object$xlevels)[obs],
-  #                 " has new level(s) of ", paste(ulv[[obs]][!ck1s[[obs]]],
-  #                                                collapse = ",")))
-  #   }
-  # }
+  
+  # Generate predictions for specified number of draws
   if (original & draws > 1) {
     stop("Can only have one draw from the original model")
   }
   if (original) {
+    # Use point estimate (no simulation)
     models <- object$coef
   }else {
+    # Simulate coefficient values from posterior distribution
     models <- MASS::mvrnorm(n = draws, mu = object$coef,
                             Sigma = object$cov)
   }
 
+  # Parse parameters: separate location from other parameters
   if(draws == 1L){
+    # Single draw: vectors of parameters
     params <- models[object$pars_indeces]
     locs <- models[object$location]
     o_params <- models[object$opars_indeces]
+    
+    # Extract covariate effect coefficients for later
     models <- models[-object$pars_indeces]
-    if(length(o_params) > 0L) o_params <- mapply(function(x, y) y(x), o_params, object$inv.transforms[object$opars_indeces])
+    
+    # Back-transform non-location parameters if needed
+    if(length(o_params) > 0L) {
+      o_params <- mapply(function(x, y) y(x), o_params, object$inv.transforms[object$opars_indeces])
+    }
     if(length(models) == 0L){
       models <- 0L
     }
   }else{
+    # Multiple draws: matrices of parameters
     params <- models[,object$pars_indeces]
     locs <- models[,object$location]
     o_params <- models[,object$opars_indeces]
+    
+    # Extract covariate effect coefficients
     models <- matrix(models[,-object$pars_indeces], nrow= draws)
+    
+    # Back-transform non-location parameters
     if(is.null(dim(o_params))){
       o_params <- mapply(function(x, y) y(o_params[x]), 1:length(o_params), object$inv.transforms[object$opars_indeces])
     }else{
@@ -100,13 +123,7 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
     }
   }
 
-  # if(length(models) == 0L){
-  #   matrix(0, nrow = nrow(params))
-  # }
-  # if()
-
-  # mm <- stats::model.matrix(stats::reformulate(object$formula), data = newdata,
-  #                           xlev = object$xlevels, contrasts.arg = object$contrasts)[,-1]
+  # Build model matrix from newdata using stored terms and contrasts
   mm <- stats::model.matrix(object$terms, data = newdata,
                             xlev = object$xlevels, contrasts.arg = object$contrasts)[,-1]
 
@@ -114,17 +131,16 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
     mm <- matrix(0, nrow = nrow(newdata))
   }
 
-
   if(is.vector(mm)) {mm <- matrix(mm, nrow = nrow(newdata))}
-  # if(ncol(mm)== 1L) {mm <- t(mm)}
 
+  # Calculate linear predictions: X %*% beta
   if (!is.null(dim(models))) {
-    # preds <- apply(models, 1, function(x) mm %*% x)
     preds <- fastmm(mm, t(models))
   }else {
-    # preds <- mm %*% models
     preds <- as.vector(fastmm(mm, matrix(models)))
   }
+  
+  # Return linear predictions if requested
   if (type == "lp") {
     if (sims > 1L)
       warning("Only 1 sim is possible for type = 'lp'")
@@ -135,136 +151,93 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
     stop("times is missing")
   }
 
-  ##location
+  # Add location parameter effect to linear predictions
   if(!is.null(dim(models))){
     preds <- mapply(function(x, y) preds[, x] + y, 1:length(locs), locs)
   }else{
     preds <- preds + locs
   }
+  
+  # Back-transform location parameter using inverse transform
   preds <- object$inv.transforms[[object$location]](preds)
 
-
-  ## now adapt risk
-  ## shape, scale need to be 1st and 2nd arguments... regardless of distribution
+  # Calculate risk predictions using hazard function
   if(draws == 1){
-    # if(length(o_params) > 0L){
-    #
-    #
-    #   ## I think I can simplyify this to below, need to double check with hazards
-    #   # list_pr <- lapply(preds, function(x) list(unlist(o_params), unlist(x)))
-    #   # list_pr <- lapply(list_pr, unlist)
-    #   # list_pr <- lapply(list_pr, setNames, c(nc[object$opars_indeces], nc[object$location]))
-    #
-    #   # list_pr <- list(preds, unlist(o_params))
-    #   list_pr <- append(as.list(o_params), list(p = preds))
-    #   names(list_pr) <- c(nc[object$opars_indeces], nc[object$location])
-    #
-    # }else{
-    #
-    #   list_pr <- lapply(preds, function(x) list(x))
-    #   list_pr <- lapply(list_pr, unlist)
-    #   list_pr <- lapply(list_pr, setNames, c(nc[object$location]))
-    # }
+    # Single draw
     list_pr <- append(as.list(o_params), list(p = preds))
     names(list_pr) <- c(nc[object$opars_indeces], nc[object$location])
+    
     if(type == "time"){
+      # Sample from distribution at specified quantiles
       ps <- stats::runif(n = nrow(newdata))
       list_pr <- append(list_pr, list(p = ps))
-      # qp <-
       ste <- do.call(object$p_q, list_pr)
       return(ste)
-
     }
 
+    # Calculate cumulative hazard at specified times
     pr0 <- sapply(times, function(y){
       list_pr_x <- append(list_pr, list(x = y))
       pr00 <- do.call(object$p_h, list_pr_x)
       pr00
     })
-    # pr0 <- do.call(object$p_h, list_pr)
+    
+    # Convert cumulative hazard to probability
     pr0 <- 1-exp(-pr0)
-
     if(nrow(pr0) == 1L) pr0 <- t(pr0)
+    
   }else{
+    # Multiple draws
     if(length(o_params) > 0L){
+      # Parameter-specific draw processing
       if(is.null(dim(o_params))){
-
         list_pr <- lapply(1:draws, function(x) append(as.list(o_params[x]), list(p = preds[, x])))
-
       }else{
-
         list_pr <- lapply(1:draws, function(x) append(as.list(o_params[x,]), list(p = preds[, x])))
-
-         }
-
+      }
       list_pr <- lapply(list_pr, setNames, c(nc[object$opars_indeces], nc[object$location]))
-
     }else{
-
       list_pr <- lapply(1:draws, function(x) list(p = preds[, x]))
       list_pr <- lapply(list_pr, setNames, c(nc[object$location]))
-
     }
-    # object$p_h
-    # pr0 <- lapply(list_pr, function(y) t(sapply(y, function(x) do.call(flexsurv_risk, x))))
+    
     if(type == "time"){
-
-      ## I think this is permissable, you either do that or do it 3 times, depending on what Jarrod wants, if this the case you just need to move
-      ## ps into the lapply
+      # Sample times from distribution for each draw
       ps <- stats::runif(n = nrow(newdata))
       ste <- lapply(list_pr, function(x){
-        # ps <- runif(n = nrow(newdata))
         list_pr_x <- append(x, list(p = ps))
-
-        ## I'm pretty sure that's what qp is
         ste1 <- do.call(object$p_q, list_pr_x)
         ste1
       })
-
       return(ste)
-
     }
 
+    # Calculate cumulative hazard for each draw
     pr0 <- lapply(list_pr, function(z){
       sapply(times, function(y){
-      list_pr_x <- append(z, list(x = y))
-      pr00 <- do.call(object$p_h, list_pr_x)
-      pr00
-      }
-      )
+        list_pr_x <- append(z, list(x = y))
+        pr00 <- do.call(object$p_h, list_pr_x)
+        pr00
+      })
     })
 
-    # pr0 <- sapply(times, function(y){
-    #   list_pr_x <- append(list_pr, list(x = y))
-    #   pr00 <- do.call(object$p_h, list_pr_x)
-    #   pr00
-    # })
-    # pr0 <- do.call(object$p_h, list_pr)
-    # pr0 <- 1-exp(-pr0)
-
-    # list_pr <- lapply(list_pr, lapply, append, list(x = times), 1)
-    # pr0 <- lapply(list_pr, function(y) t(sapply(y, function(x) do.call(object$p_h, x))))
+    # Convert to probability and format output
     pr0 <- lapply(pr0, `row.names<-`, NULL)
     pr0 <- lapply(pr0, function(z) 1-exp(-z))
     if(nrow(pr0[[1]] == 1L))  pr0 <- lapply(pr0, t)
   }
-  # pr0 <- exp(-pr0)
-
 
   if(type == "risk"){
     return(pr0)
   }
 
+  # Generate response predictions (with simulation if requested)
   if (sims >= 1 & type == "response") {
     if (!is.null(dim(pr0))) {
-
       pn <- simulate_responses_binom(pr0, sims)
-
       if(sims < 2) pn <- pn[[1]]
     } else {
-
       pn <- lapply(pr0, simulate_responses_binom, sims = sims)
-
       if(sims < 2) pn <- lapply(pn, function(x) if(length(x) == 1) x[[1]] else x)
     }
   }
@@ -279,18 +252,11 @@ flexsurv_risk <- function(f, t, start = 0, ...){
   r
 }
 
-## that's easy to implement
+## Calculate probability of survival at time t
 flexsurv_ptime <- function(fp, fq, t, start = 0, ...){
-
   dots <- list(...)
   sp <- fp(start, ...)
   qu_f_start <- sp + (1- sp)*t
   q1 <- fq(qu_f_start, ...)
-
   q1
 }
-### test this tomroorow
-
-#unq <- sort(unique(object$data$Y[,"time"]))
-
-# haxzs <-

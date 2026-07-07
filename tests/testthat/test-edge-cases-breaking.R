@@ -93,22 +93,25 @@ test_that("burgle_lm handles empty model (formula ~ 0)", {
 })
 
 test_that("burgle_lm handles singular fit with qr", {
-  # Create a singular design matrix
-  skip("Currently fails - singular fit handling needs work")
-
+  # Create a singular design matrix — x1 and x2 are perfectly collinear
   df <- data.frame(
     y = rnorm(10),
     x1 = 1:10,
-    x2 = 1:10,  # perfect collinearity with x1
+    x2 = 1:10,
     x3 = rnorm(10)
   )
 
-  # This creates a singular fit
   fit <- lm(y ~ x1 + x2 + x3, data = df, singular.ok = TRUE)
 
-  # burgle should handle this gracefully
+  # burgle preserves NA coefficients silently; draw_models replaces them with 0
   bfit <- burgle(fit)
   expect_silent(bfit)
+
+  # Prediction should also succeed (NA coefs replaced with 0 with a warning)
+  expect_warning(
+    predict(bfit, newdata = df, original = TRUE, type = "lp"),
+    "Coefficient"
+  )
 })
 
 # ============================================================================

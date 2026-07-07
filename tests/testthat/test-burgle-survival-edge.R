@@ -33,7 +33,7 @@ test_that("burgle_coxph predicts risk for true strata-only models", {
   expect_true(all(risk >= 0 & risk <= 1))
 })
 
-test_that("predict_time on strata-only cox models still breaks", {
+test_that("predict_time.burgle_coxph errors on strata-only cox models (strata-only not yet supported)", {
   strata <- survival::strata
   lung_edge <- subset(survival::lung, !is.na(ph.ecog))
   lung_edge$status <- lung_edge$status - 1

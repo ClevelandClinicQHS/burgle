@@ -71,55 +71,55 @@ make_mock_rfsrc <- function(kind) {
   structure(list(forest = forest), class = "rfsrc")
 }
 
-# test_that("burgle_flexsurvreg mock object handles risk and time predictions", {
-#   bfit <- burgle(make_mock_flexsurv(~ x))
-#   new_data <- data.frame(x = c(1, 2))
-#
-#   risk <- predict(bfit, newdata = new_data, type = "risk", times = c(1, 2))
-#   times <- predict(bfit, newdata = new_data, type = "time")
-#
-#   expect_equal(dim(risk), c(2, 2))
-#   expect_true(all(risk >= 0 & risk <= 1))
-#   expect_equal(length(times), 2)
-# })
-#
-# test_that("burgle_flexsurvreg mock object validates times, levels, and NA covariance", {
-#   bfit <- burgle(make_mock_flexsurv(~ grp, na_cov = TRUE))
-#   new_data <- data.frame(grp = factor("c"))
-#
-#   expect_equal(bfit$cov, matrix(0, nrow = 2, ncol = 2))
-#   expect_error(predict(bfit, newdata = new_data, type = "risk", times = 1), "new level")
-#   expect_error(predict(bfit, newdata = data.frame(grp = factor("a")), type = "risk"), "times is missing")
-# })
-#
-# test_that("burgle_rfsrc mock regression and classification behave as expected", {
-#   regr <- burgle(make_mock_rfsrc("regr"))
-#   class_fit <- burgle(make_mock_rfsrc("class"))
-#
-#   expect_equal(predict(regr, newdata = data.frame(x = 1:2), type = "response"), c(0.1, 0.2))
-#   expect_warning(predict(regr, newdata = data.frame(x = 1:2), type = "risk"), "Only response is available")
-#
-#   odds <- predict(class_fit, newdata = data.frame(x = 1:2), type = "risk")
-#   sims <- predict(class_fit, newdata = data.frame(x = 1:2), type = "response", sims = 2)
-#
-#   expect_equal(dim(odds), c(2, 2))
-#   expect_true(all(abs(rowSums(odds) - 1) < 1e-8))
-#   expect_true(is.list(sims))
-#   expect_equal(length(sims), 2)
-# })
-#
-# test_that("burgle_rfsrc mock survival and competing-risk predictions work", {
-#   surv_fit <- burgle(make_mock_rfsrc("surv"))
-#   cr_fit <- burgle(make_mock_rfsrc("surv-CR"))
-#
-#   surv_risk <- predict(surv_fit, newdata = data.frame(x = 1:2), type = "risk", times = c(1, 2))
-#   cr_risk <- predict(cr_fit, newdata = data.frame(x = 1:2), type = "risk", cause = 1, times = c(1, 2))
-#
-#   expect_equal(dim(surv_risk), c(2, 2))
-#   expect_equal(dim(cr_risk), c(2, 2))
-#   expect_true(all(surv_risk >= 0 & surv_risk <= 1))
-#   expect_true(all(cr_risk >= 0 & cr_risk <= 1))
-# })
+test_that("burgle_flexsurvreg mock object handles risk and time predictions", {
+  bfit <- burgle(make_mock_flexsurv(~ x))
+  new_data <- data.frame(x = c(1, 2))
+
+  risk <- predict(bfit, newdata = new_data, type = "risk", times = c(1, 2))
+  times <- predict(bfit, newdata = new_data, type = "time")
+
+  expect_equal(dim(risk), c(2, 2))
+  expect_true(all(risk >= 0 & risk <= 1))
+  expect_equal(length(times), 2)
+})
+
+test_that("burgle_flexsurvreg mock object validates times, levels, and NA covariance", {
+  bfit <- burgle(make_mock_flexsurv(~ grp, na_cov = TRUE))
+  new_data <- data.frame(grp = factor("c"))
+
+  expect_equal(bfit$cov, matrix(0, nrow = 2, ncol = 2))
+  expect_error(predict(bfit, newdata = new_data, type = "risk", times = 1), "new level")
+  expect_error(predict(bfit, newdata = data.frame(grp = factor("a")), type = "risk"), "times is missing")
+})
+
+test_that("burgle_rfsrc mock regression and classification behave as expected", {
+  regr <- burgle(make_mock_rfsrc("regr"))
+  class_fit <- burgle(make_mock_rfsrc("class"))
+
+  expect_equal(predict(regr, newdata = data.frame(x = 1:2), type = "response"), c(0.1, 0.2))
+  expect_warning(predict(regr, newdata = data.frame(x = 1:2), type = "risk"), "Only response is available")
+
+  odds <- predict(class_fit, newdata = data.frame(x = 1:2), type = "risk")
+  sims <- predict(class_fit, newdata = data.frame(x = 1:2), type = "response", sims = 2)
+
+  expect_equal(dim(odds), c(2, 2))
+  expect_true(all(abs(rowSums(odds) - 1) < 1e-8))
+  expect_true(is.list(sims))
+  expect_equal(length(sims), 2)
+})
+
+test_that("burgle_rfsrc mock survival and competing-risk predictions work", {
+  surv_fit <- burgle(make_mock_rfsrc("surv"))
+  cr_fit <- burgle(make_mock_rfsrc("surv-CR"))
+
+  surv_risk <- predict(surv_fit, newdata = data.frame(x = 1:2), type = "risk", times = c(1, 2))
+  cr_risk <- predict(cr_fit, newdata = data.frame(x = 1:2), type = "risk", cause = 1, times = c(1, 2))
+
+  expect_equal(dim(surv_risk), c(2, 2))
+  expect_equal(dim(cr_risk), c(2, 2))
+  expect_true(all(surv_risk >= 0 & surv_risk <= 1))
+  expect_true(all(cr_risk >= 0 & cr_risk <= 1))
+})
 
 test_that("burgle_rfsrc mock competing-risk prediction validates missing cause or times", {
   cr_fit <- burgle(make_mock_rfsrc("surv-CR"))

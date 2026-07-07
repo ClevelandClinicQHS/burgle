@@ -40,6 +40,7 @@
   original = TRUE,
   draws = 1,
   sims = 1,
+  seed = NULL,
   type = "lp",
   times = NULL,
   ...
@@ -130,9 +131,9 @@ draw_models(object, original = T, draws = 1, seed = NULL)
 
 \item{...}{for future methods}
 
-\item{floor}{will set the minimum odds to 0, if negative odds exists}
-
 \item{seed}{seed to set for reproducibility}
+
+\item{floor}{will set the minimum odds to 0, if negative odds exists}
 
 \item{se}{whether or not to include the standard error in the simulations}
 

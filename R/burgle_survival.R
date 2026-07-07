@@ -9,32 +9,23 @@ burgle.coxph <- function(object, ...){
   attr(terms, ".Environment") <- NULL
 
 
-  if(!is.null(object$xlevels) && (!is.null(object$strata)| any(grepl("strata", names(object$xlevels))))){
+  has_strata <- !is.null(object$strata) | "strata" %in% colnames(bh)
+  if(has_strata){
 
-    bh0 <- bh[, c("hazard", "strata")]
-    bh <- bh[!duplicated(bh0),]
-    ###### there is a bug is only a strata term in formula will fix later
-    terms <- drop.special(terms, attr(terms, "specials")$strata)
-    # ft <- as.character(attr(object$terms, "predvars"))[-c(1:2)]
-    # ft2 <- ft[!grepl("strata", ft)]
-    # if(length(ft2)<1){
-    #   formula <- "1"
-    # }else{
-    #   formula <- ft2
-    # }
-    # ## interactions
-    # tlo <- attr(object$terms, "order")
-    # if(any(tlo >1)){
-    #   tl <- attr(object$terms, "term.labels")
-    #   tl0 <- tl[which(tlo <=1)]
-    #   tli <- tl[which(tlo >1)]
-    #   tli2 <- strsplit(tli, "(?<!:)(:)(?!:)", perl = T)
-    #   formula <- c(formula, sapply(tli2, function(x) make_ints(x, o_form = formula, tl0 = tl0)))
-    # }
+    if("strata" %in% colnames(bh)){
+      bh0 <- bh[, c("hazard", "strata")]
+      bh <- bh[!duplicated(bh0),]
+    } else {
+      # If no strata column, just remove duplicate hazard values
+      bh <- bh[!duplicated(bh$hazard),]
+    }
 
   }else{
     bh <- bh[!duplicated(bh$hazard),]
   }
+
+  terms <- strip_strata_terms(terms)
+
   coef <- stats::coef(object)
   if(length(coef) == 0L){
     cov <- matrix(0)
@@ -57,6 +48,37 @@ burgle.coxph <- function(object, ...){
 }
 
 drop.special <- get("drop.special", envir = asNamespace("survival"), inherits = FALSE)
+
+strip_strata_terms <- function(terms) {
+  term_labels <- attr(terms, "term.labels")
+  bare_labels <- gsub(".*::", "", term_labels)
+  if (length(bare_labels) > 0L && all(grepl("strata\\(", bare_labels))) {
+    terms <- stats::terms(~1)
+    attr(terms, ".Environment") <- NULL
+    return(terms)
+  }
+
+  strata_indices <- attr(terms, "specials")$strata
+  if (length(strata_indices) > 0 && any(strata_indices)) {
+    terms <- drop.special(terms, strata_indices)
+    attr(terms, ".Environment") <- NULL
+    return(terms)
+  }
+
+  if (length(term_labels) == 0L || !any(grepl("strata\\(", term_labels))) {
+    return(terms)
+  }
+
+  keep_labels <- term_labels[!grepl("strata\\(", term_labels)]
+  if (length(keep_labels) == 0L) {
+    terms <- stats::terms(~1)
+  } else {
+    terms <- stats::terms(stats::reformulate(keep_labels,
+                                             intercept = attr(terms, "intercept")))
+  }
+  attr(terms, ".Environment") <- NULL
+  terms
+}
 
 
 #' @name predict_burgle
@@ -229,7 +251,8 @@ simulate_models.burgle_coxph <- function(object, models, newdata, type = "lp", s
   if(any(str_ck)){
     str1 <- object$xlevels[str_ck]
     o_xlvs <- object$xlevels[!str_ck]
-    str1n <- names(str1)
+    # str1n <- names(str1)
+    str1n <- gsub(".*::", "", names(str1))
     str1_v <- strsplit(gsub("strata|\\)|\\(", "", str1n), ", ")[[1]]
     vn <- length(str1_v)
     str1_ls <- strsplit(str1[[1]], ", ")
@@ -240,7 +263,7 @@ simulate_models.burgle_coxph <- function(object, models, newdata, type = "lp", s
     xlvs <- append(o_xlvs, new_xlvs)
   }
 
-  mm <- stats::model.matrix(object$terms, data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)[,-1]
+  mm <- stats::model.matrix(object$terms, data = newdata, xlev = o_xlvs, contrasts.arg = object$contrasts)[,-1, drop = FALSE]
 
   if(is.integer(models)){
     mm <- matrix(0, nrow = nrow(newdata))
@@ -282,7 +305,7 @@ simulate_models.burgle_coxph <- function(object, models, newdata, type = "lp", s
     }
 
     nd_i <- lapply(levels(bh$strata), function(x) which(str_s == x))
-    nd_e <- sapply(nd_i, function(x) length(x)>0L)
+    nd_e <- lengths(nd_i) > 0L
 
     bh_tr <- lapply(times, function(x) bh[bh$time <= x,])
 

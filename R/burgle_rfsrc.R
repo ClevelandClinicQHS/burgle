@@ -11,7 +11,7 @@ burgle.rfsrc <- function(object, ...){
   # new_rf$yvar[,] <- 1
   ## This is really makes no sense, but I think it works since the newdata is always a test dataset.
   if(class3 %in% c("surv", "surv-CR")){
-    new_rf$yvar <- new_rf$yvar[1,]
+    new_rf$yvar <- new_rf$yvar[1,, drop = FALSE]
     new_rf$yvar[,] <- 1
   }else{
     new_rf$yvar <- NULL
@@ -90,7 +90,7 @@ predict.burgle_rfsrc <- function(object, newdata = NULL, type = "risk", sims = 1
 
   }
   if(class3 == "surv-CR"){
-    if(is.na(cause) | is.na(times)) stop("Please specificy a cause and time")
+    if(anyNA(c(cause, times))) stop("Please specify a cause and time")
 
     odds <- op1$cif[, , cause, drop = TRUE]
   }
@@ -111,43 +111,3 @@ predict.burgle_rfsrc <- function(object, newdata = NULL, type = "risk", sims = 1
   return(p)
 
 }
-
-## regression "regr"
-## classification "class"
-## multivariate
-## survival "surv"
-## competiting risk "surv-CR"
-
-
-# f1 <- burgle.rfsrc(wihs.obj)
-#
-# f2 <- wihs.obj$forest
-# f2$xvar <- NULL
-# f2$yvar <- NULL
-# f2$forest <- NULL
-#
-# attr(f2, "class") <- c('rfsrc', 'forest', 'surv-CR', 'burgle_rfsrc')
-# # f2$leafCount <- NULL
-# # f2$sampsize <- NULL
-# # f3 <- environment(f2$sampsize)
-# remove(list = ls(environment(f2$sampsize)), envir = environment(f2$sampsize))
-#
-#
-# cif <- stats::predict(f1, newdata = head(wihs),
-#                       importance = "none")$cif[, , 1, drop = TRUE]
-
-###
-# new_rf <- crf4$forest
-#
-# new_rf <- object$forest
-# new_rf$xvar <- NULL
-# ## I think this needs to simply be anonymized
-# new_rf$yvar[,] <- 1
-# new_rf$forest <- NULL
-# new_rf$event.info$time <- NULL
-# new_rf$event.info$event <- NULL
-# new_rf$event.info$cens <- unique(new_rf$event.info$cens)
-# new_rf$nativeArrayTNDS$tnRMBR <- NULL
-# new_rf$nativeArrayTNDS$tnAMBR <- NULL
-# new_rf$seed <- NULL
-# remove(list = ls(environment(new_rf$sampsize)), envir = environment(new_rf$sampsize))

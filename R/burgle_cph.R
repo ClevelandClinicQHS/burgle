@@ -7,17 +7,21 @@ burgle.cph <- function(object, ...){
   terms <- stats::delete.response(terms)
   attr(terms, ".Environment") <- NULL
 
+  has_strata <- !is.null(object$strata) || "strata" %in% colnames(bh)
+  if(has_strata){
 
-  if (!is.null(object$xlevels) && (!is.null(object$strata) |
-                                   any(grepl("strata", names(object$xlevels))))) {
-    bh0 <- bh[, c("hazard", "strata")]
-    bh <- bh[!duplicated(bh0), ]
-    terms <- drop.special(terms, attr(terms, "specials")$strata)
+    if("strata" %in% colnames(bh)){
+      bh0 <- bh[, c("hazard", "strata")]
+      bh <- bh[!duplicated(bh0),]
+    } else {
+      # If no strata column, just remove duplicate hazard values
+      bh <- bh[!duplicated(bh$hazard),]
+    }
 
+  } else {
+    bh <- bh[!duplicated(bh$hazard),]
   }
-  else {
-    bh <- bh[!duplicated(bh$hazard), ]
-  }
+
   coef <- stats::coef(object)
   if (length(coef) == 0L) {
     cov <- matrix(0)

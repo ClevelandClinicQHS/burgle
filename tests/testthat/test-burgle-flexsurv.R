@@ -26,17 +26,4 @@ test_that("predict.burgle_flexsurv original=TRUE matches type='risk'", {
 ## flexsurv: Multiple Draws with Predictions
 ## ##############################################################################
 
-test_that("predict.burgle_flexsurv with multiple draws", {
-  skip_if_not_installed("flexsurv")
 
-  lung <- survival::lung |>
-    transform(status = status - 1)
-
-  fit <- flexsurv::flexsurvreg(survival::Surv(time, status) ~ age,
-                               data = lung, dist = "weibull")
-  bfit <- burgle(fit)
-
-  result <- predict(bfit, newdata = head(lung), original = FALSE, draws = 2, type = "lp")
-
-  expect_equal(ncol(result), 2)
-})

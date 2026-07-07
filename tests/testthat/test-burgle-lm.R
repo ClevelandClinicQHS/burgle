@@ -106,10 +106,8 @@ test_that("burgle_lm terms exclude the response variable", {
   fit <- lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris)
   bfit <- burgle(fit)
 
-  ## model.matrix should succeed on data that lacks the response variable
-  newdata_no_response <- head(iris)[, c("Sepal.Width", "Petal.Length", "Petal.Width",
-                                        "Sepal.Length", "Species")]
-  newdata_no_response$Sepal.Length <- NULL  ## Remove response column
+  ## model.matrix should succeed on data that only contains predictors (no response)
+  newdata_no_response <- head(iris)[, c("Sepal.Width", "Petal.Length")]
   mm <- stats::model.matrix(bfit$terms, data = newdata_no_response)
   expect_equal(nrow(mm), 5)
 })

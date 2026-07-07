@@ -10,7 +10,7 @@
 #' @param sims how many simulated response to draw
 #' @param type either 'lp', 'response', 'link' for glm or 'risk' if time dependent
 #' @param seed seed to set for reproducibility
-#' @param ... arguemnts for specific methods
+#' @param ... arguments for specific methods
 #'
 #' @export
 simulate_models <- function(object, models, newdata, type = "lp", sims = 1, seed = NULL, ...){

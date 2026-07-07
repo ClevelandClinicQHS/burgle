@@ -29,11 +29,11 @@ burgle.cph <- function(object, ...){
   else {
     cov <- stats::vcov(object)
   }
-  rss <- sum(object$residuals^2)/(sum(object$n) - length(coef))
+  mse <- sum(object$residuals^2)/(sum(object$n) - length(coef))
   xlevels <- object$xlevels
   contrasts <- object$contrasts
 
-  l <- list(coef = coef, cov = cov, rss = rss, xlevels = xlevels,
+  l <- list(coef = coef, cov = cov, mse = mse, xlevels = xlevels,
             terms = terms,
             contrasts = contrasts,
             basehaz = bh)

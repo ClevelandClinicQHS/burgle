@@ -165,14 +165,14 @@ predict.burgle_CauseSpecificCox <- function(object, newdata = NULL, type = "lp",
 
 
   if(is.list(preds)){
-    preds <- lapply(preds, function(x) predictCIF_cpp(hazard = object$hazard, cumhazard = object$cumhazards,
+    preds <- lapply(preds, function(x) predictCIF_cpp(hazard = object$hazards, cumhazard = object$cumhazards,
                                                       eXb = exp(x), strata = M.strata, newtimes = times, etimes = object$eventTimes, etimeMax = vec.Etime,
                                                       t0 = 0, nEventTimes = length(object$eventTimes), nNewTimes = length(times),
                                                       nData = nrow(newdata), cause = cause - 1, nCause = nMods,
                                                       survtype = FALSE, productLimit = TRUE >
                                                         0, diag = FALSE, exportSurv = FALSE)[["cif"]])
   }else{
-    preds <- predictCIF_cpp(hazard = object$hazard, cumhazard = object$cumhazards,
+    preds <- predictCIF_cpp(hazard = object$hazards, cumhazard = object$cumhazards,
                             eXb = exp(preds), strata = M.strata, newtimes = times, etimes = object$eventTimes, etimeMax = vec.Etime,
                             t0 = 0, nEventTimes = length(object$eventTimes), nNewTimes = length(times),
                             nData = nrow(newdata), cause = cause - 1, nCause = nMods,

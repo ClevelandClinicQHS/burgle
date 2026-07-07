@@ -12,6 +12,7 @@ burgle.lm <- function(object, ...){
   contrasts <- object$contrasts
 
   terms <- object$terms
+  terms <- stats::delete.response(terms)
   attr(terms, ".Environment") <- NULL
 
   l <- list("coef" = coef,

@@ -17,7 +17,7 @@
 #' @return either a matrix or list of new model predictions
 #' @export
 #'
-predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, limits = NULL, seed = NULL, se_type = "prediction", ...){
+predict.burgle_lm <- function(object, newdata = NULL, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, limits = NULL, seed = NULL, se_type = "prediction", ...){
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "response", "link"))
 
@@ -37,44 +37,20 @@ predict.burgle_lm <- function(object, newdata, original = TRUE, draws = 1, sims 
 #' @name predict_burgle
 #'
 #' @export
-predict.burgle_glm <- function(object, newdata, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, seed = NULL, ...){
+predict.burgle_glm <- function(object, newdata = NULL, original = TRUE, draws = 1, sims = 1, type = "lp", se = FALSE, limits = NULL, seed = NULL, se_type = "prediction", ...){
+  if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "response", "link"))
+
+  if(original & draws > 1){
+    stop("Can only have one draw from the original model")
+  }
 
   models <- draw_models(object, original = original, draws = draws, seed = seed)
 
-  pn <- simulate_models(object, models = models, newdata = newdata, sims = sims, type = type, se = se, seed = seed, se_type = "prediction", ...)
-
-  # preds <- predict.burgle_lm(object, newdata = newdata, original = original, draws = draws, sims = sims, type = type, se = se, ...)
+  pn <- simulate_models(object, models = models, newdata = newdata, sims = sims, type = type, se = se, limits = limits, seed = seed, se_type = se_type, ...)
 
   pn
 
-}
-
-rsamp <- function(FUN, limits, ...){
-  dots <- list(...)
-  l <- formals(FUN)
-  if(!("n" %in% names(l))){
-    stop("sample size (n) not present in called FUN")
-  }
-  y <- do.call(FUN, dots)
-
-  if(length(limits)!=2L){
-    stop("Limits must be of length two")
-  }
-  mn <- min(limits)
-  mx <- max(limits)
-  i <- 1
-  while(any(y<mn|y>mx)){
-    n1 <- sum(y<mn|y>mx)
-    dots["n"] <- n1
-    i
-    wn1 <- which(y<mn|y>mx)
-    ## This has to change the x changes
-    dots2 <- lapply(dots, function(x) if(length(x)>1L) x[wn1] else x)
-    y[wn1] <- do.call(FUN, dots2)
-
-  }
-  return(y)
 }
 
 #' Predict for burgle methods
@@ -126,8 +102,8 @@ draw_models <- function(object, original = T, draws = 1, seed= NULL){
 #' @param se_type either 'prediction' or 'confidence' for standard errors use in simulating
 #'
 #' @export
-simulate_models.burgle_lm <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", ...){
-  if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+simulate_models.burgle_lm <- function(object, models = NULL, newdata = NULL, type = "lp", sims =1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", ...){
+  if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
@@ -168,8 +144,9 @@ simulate_models.burgle_lm <- function(object, models = NULL, newdata, type = "lp
 #' @rdname simulate_models
 #'
 #' @export
-simulate_models.burgle_glm <- function(object, models = NULL, newdata, type = "lp", sims =1, seed = NULL, se = FALSE, se_type = "prediction", ...){
-  if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+simulate_models.burgle_glm <- function(object, models = NULL, newdata = NULL, type = "lp", sims = 1, seed = NULL, se = FALSE, limits = NULL, se_type = "prediction", ...){
+  if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
+  if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 
@@ -187,33 +164,36 @@ simulate_models.burgle_glm <- function(object, models = NULL, newdata, type = "l
   se_p <- rowSums(fastmm(mm, object$cov) * mm)
   if(se_type == "prediction") se_p <- sqrt(se_p + object$mse)
 
-  ## rows are observation
-  ## columns are models
-  ## lists are the simulations
-
-  preds <- simulate_responses(preds, sims, se, se_p)
-
-  preds <-  lapply(preds, object$inv_link)
+  ## Simulate on the linear predictor (link) scale
+  if(is.null(limits)){
+    preds <- simulate_responses(preds, sims, se, se_p)
+  } else {
+    preds <- simulate_responses_limits(preds, sims, se, se_p, limits = limits)
+  }
 
   if(type == "link"){
+    ## Return simulated values on the linear predictor (link) scale
     return(preds)
   }
-  if(type == "response"){
-    if(!grepl("binomial", object$family)) stop("please use type = 'link' for model families other than binomial and quasibinomial")
+
+  ## type == "response": apply inverse link and return response-scale predictions
+  preds <- lapply(preds, object$inv_link)
+
+  if(grepl("binomial", object$family)){
+    ## For binomial, sample binary outcomes from the probabilities
     if(is.list(preds)){
       pn <- lapply(preds, simulate_responses_binom, sims = 1)
-    }
-    else{
+    } else {
       pn <- simulate_responses_binom(preds, sims = 1)
     }
-
+    pn <- lapply(pn, drop_list)
+    pn <- drop_list(pn)
+  } else {
+    ## For non-binomial, return the response-scale (mean) predictions
+    pn <- drop_list(preds)
   }
 
-  pn <- lapply(pn, drop_list)
-  pn <- drop_list(pn)
-
   return(pn)
-
 
 }
 

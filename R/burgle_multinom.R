@@ -41,12 +41,10 @@ burgle.multinom <- function(object, ...){
 #' @param floor will set the minimum odds to 0, if negative odds exists
 #' @param seed a seed to specify for simulating responses (multinomial only)
 #' @export
-predict.burgle_multinom <- function(object, newdata = NA, original = TRUE, draws = 1, sims = 1, type = "lp", floor = FALSE, seed = NULL, ...){
+predict.burgle_multinom <- function(object, newdata = NULL, original = TRUE, draws = 1, sims = 1, type = "lp", floor = FALSE, seed = NULL, ...){
   if (!is.data.frame(newdata))
     stop("newdata must be an object of class data.frame")
-  nc <- names(object$coef)
   type <- match.arg(tolower(type), c("lp", "response", "odds"))
-
 
   if(original & draws >1){
     stop("Can only have one draw from the original model")
@@ -54,13 +52,7 @@ predict.burgle_multinom <- function(object, newdata = NA, original = TRUE, draws
 
   rlev <- object$rlev
 
-  if(!is.null(seed)) set.seed(seed)
-
-  if(original){
-    models <- object$coef
-  }else{
-    models <- MASS::mvrnorm(n = draws, mu = object$coef, Sigma = object$cov)
-  }
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
 
   mm <- stats::model.matrix(object$terms, data = newdata, xlev = object$xlevels, contrasts.arg = object$contrasts)
 

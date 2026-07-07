@@ -49,7 +49,7 @@ burgle.flexsurvreg <- function(object, ...){
 #' @importFrom stats setNames
 #'
 #' @export
-predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, draws = 1, sims = 1, seed = NULL,
+predict.burgle_flexsurvreg <- function(object, newdata = NULL, original = TRUE, draws = 1, sims = 1, seed = NULL,
                                        type = "lp", times = NULL, ...){
 
   models <- draw_models(object, original = original, draws = draws, seed = seed)
@@ -301,10 +301,10 @@ predict.burgle_flexsurvreg <- function(object, newdata = NA, original = TRUE, dr
 #' @name simulate_models
 #'
 #' @export
-simulate_models.burgle_flexsurvreg <- function(object, models = NULL, newdata = NA, type = "lp", sims = 1, seed = NULL,
+simulate_models.burgle_flexsurvreg <- function(object, models = NULL, newdata = NULL, type = "lp", sims = 1, seed = NULL,
                                              times = NULL, ...){
 
-  if(is.null(models)) stop("Please specificy models using `draw_models()`, otherwise use corresponding predict()")
+  if(is.null(models)) stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
 
   if (!is.data.frame(newdata))
     stop("newdata must be an object of class data.frame")
@@ -457,7 +457,7 @@ simulate_models.burgle_flexsurvreg <- function(object, models = NULL, newdata = 
 
       pr0 <- lapply(pr0, `row.names<-`, NULL)
     pr0 <- lapply(pr0, function(z) 1-exp(-z))
-    if(nrow(pr0[[1]] == 1L))  pr0 <- lapply(pr0, t)
+    if(nrow(pr0[[1]]) == 1L)  pr0 <- lapply(pr0, t)
   }
 
   if(type == "risk"){

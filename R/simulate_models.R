@@ -12,6 +12,7 @@
 #' @param seed seed to set for reproducibility
 #' @param ... arguemnts for specific methods
 #'
+#' @export
 simulate_models <- function(object, models, newdata, type = "lp", sims = 1, seed = NULL, ...){
   UseMethod("simulate_models")
 }

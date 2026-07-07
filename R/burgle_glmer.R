@@ -24,7 +24,7 @@ burgle.glmerMod <- function(object, ...){
 
   l <- list("coef" = coef,
             "cov" = cov,
-            "mse" = 0,
+            "mse" = if(grepl("gaussian", stats::family(object)$family, ignore.case = TRUE)) stats::sigma(object)^2 else 0,
             "xlevels" = xlevels,
             "terms" = terms,
             "family" = stats::family(object)$family,

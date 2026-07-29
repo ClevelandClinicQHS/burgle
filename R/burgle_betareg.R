@@ -62,13 +62,6 @@ burgle.betareg <- function(object, ...){
 }
 
 
-#' @name predict_burgle
-#'
-#' @param type "lp" returns the linear predictor for the mean model;
-#'   "link" returns the expected mean (mu) after applying the mean-model
-#'   inverse link function; "response" simulates values from the beta
-#'   distribution using mu and the precision parameter phi.
-#'
 #' @name simulate_models
 #' @export
 simulate_models.burgle_betareg <- function(object, models = NULL, newdata,
@@ -130,6 +123,11 @@ simulate_models.burgle_betareg <- function(object, models = NULL, newdata,
 }
 
 #' @name predict_burgle
+#'
+#' @param type "lp" returns the linear predictor for the mean model;
+#'   "link" returns the expected mean (mu) after applying the mean-model
+#'   inverse link function; "response" simulates values from the beta
+#'   distribution using mu and the precision parameter phi.
 #'
 #' @export
 predict.burgle_betareg <- function(object, newdata, original = TRUE, draws = 1L,

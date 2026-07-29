@@ -62,11 +62,6 @@ burgle.clm <- function(object, ...){
 }
 
 
-#' @name predict_burgle
-#'
-#' @param type "lp" returns the linear predictor eta; "probs" returns the
-#'   matrix of category probabilities; "response" simulates category draws.
-#'
 #' @name simulate_models
 #' @export
 simulate_models.burgle_clm <- function(object, models = NULL, newdata,
@@ -149,6 +144,9 @@ simulate_models.burgle_clm <- function(object, models = NULL, newdata,
 }
 
 #' @name predict_burgle
+#'
+#' @param type "lp" returns the linear predictor eta; "probs" returns the
+#'   matrix of category probabilities; "response" simulates category draws.
 #'
 #' @export
 predict.burgle_clm <- function(object, newdata, original = TRUE, draws = 1L,

@@ -78,7 +78,7 @@ simulate_models.burgle_fixest <- function(object, models = NULL, newdata,
   }
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
 
-  is_glm     <- !isTRUE(object$family %in% c("gaussian", "Gaussian"))
+  is_glm     <- !(object$family %in% c("gaussian", "Gaussian"))
   valid_types <- if(is_glm) c("lp", "link", "response") else c("lp", "response")
   type <- match.arg(tolower(type), valid_types)
 

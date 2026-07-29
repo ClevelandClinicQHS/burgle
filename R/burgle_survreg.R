@@ -16,7 +16,6 @@
 #' @export
 burgle.survreg <- function(object, ...){
 
-  coef <- stats::coef(object)
   cov  <- stats::vcov(object)
 
   terms <- object$terms
@@ -27,18 +26,20 @@ burgle.survreg <- function(object, ...){
   contrasts <- object$contrasts
   dist     <- object$dist
 
-  ## For exponential the scale is fixed at 1 (no log-scale coefficient).
-  ## For all other distributions the last coefficient is Log(scale).
-  n_coef <- length(coef)
+  ## Build full coefficient vector to align with vcov.survreg parameterization.
+  ## For exponential the scale is fixed at 1 (no Log(scale) coefficient).
+  coef_reg <- stats::coef(object)
   if(dist == "exponential"){
-    loc_idx   <- seq_len(n_coef)
+    coef_all  <- coef_reg
+    loc_idx   <- seq_along(coef_reg)
     scale_idx <- NULL
   } else {
-    loc_idx   <- seq_len(n_coef - 1L)
-    scale_idx <- n_coef
+    coef_all  <- c(coef_reg, "Log(scale)" = log(object$scale))
+    loc_idx   <- seq_along(coef_reg)
+    scale_idx <- length(coef_all)
   }
 
-  l <- list(coef      = coef,
+  l <- list(coef      = coef_all,
             cov       = cov,
             terms     = terms,
             xlevels   = xlevels,

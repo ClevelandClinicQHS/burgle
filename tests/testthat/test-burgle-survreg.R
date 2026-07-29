@@ -12,7 +12,8 @@ test_that("burgle.survreg preserves coefficients", {
                              data = lung, dist = "weibull")
   bfit <- burgle(fit)
 
-  expect_equal(bfit$coef, stats::coef(fit))
+  expect_equal(bfit$coef,
+               c(stats::coef(fit), "Log(scale)" = log(fit$scale)))
 })
 
 test_that("burgle.survreg stores correct dist and indices (weibull)", {
@@ -26,10 +27,9 @@ test_that("burgle.survreg stores correct dist and indices (weibull)", {
   bfit <- burgle(fit)
 
   expect_equal(bfit$dist, "weibull")
-  ## For weibull: loc_idx covers all but last, scale_idx is last
   n <- length(stats::coef(fit))
-  expect_equal(bfit$loc_idx, seq_len(n - 1L))
-  expect_equal(bfit$scale_idx, n)
+  expect_equal(bfit$loc_idx, seq_len(n))
+  expect_equal(bfit$scale_idx, n + 1L)
 })
 
 test_that("burgle.survreg handles exponential (no log-scale coef)", {

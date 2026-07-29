@@ -5,7 +5,9 @@
 test_that("burgle.polr preserves betas and zeta", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
 
@@ -16,7 +18,9 @@ test_that("burgle.polr preserves betas and zeta", {
 test_that("burgle.polr stores correct metadata", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
 
@@ -29,12 +33,15 @@ test_that("burgle.polr stores correct metadata", {
 test_that("predict.burgle_polr probs match MASS::polr predict (original)", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
 
-  preds_polr   <- stats::predict(fit, newdata = head(iris), type = "probs")
-  preds_burgle <- predict(bfit, newdata = head(iris), original = TRUE, type = "probs")
+  preds_polr   <- stats::predict(fit, newdata = nd, type = "probs")
+  preds_burgle <- predict(bfit, newdata = nd, original = TRUE, type = "probs")
 
   expect_equal(as.numeric(preds_burgle), as.numeric(preds_polr), tolerance = 1e-5)
 })
@@ -42,24 +49,30 @@ test_that("predict.burgle_polr probs match MASS::polr predict (original)", {
 test_that("predict.burgle_polr returns correct number of columns", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
 
-  result <- predict(bfit, newdata = head(iris), original = TRUE, type = "probs")
+  result <- predict(bfit, newdata = nd, original = TRUE, type = "probs")
 
-  expect_equal(ncol(result), length(levels(iris$Species)))
-  expect_equal(nrow(result), nrow(head(iris)))
+  expect_equal(ncol(result), length(levels(housing$Sat)))
+  expect_equal(nrow(result), nrow(nd))
 })
 
 test_that("predict.burgle_polr probs sum to 1", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
 
-  result <- predict(bfit, newdata = head(iris), original = TRUE, type = "probs")
+  result <- predict(bfit, newdata = nd, original = TRUE, type = "probs")
 
   expect_true(all(abs(rowSums(result) - 1.0) < 1e-8))
 })
@@ -67,24 +80,30 @@ test_that("predict.burgle_polr probs sum to 1", {
 test_that("predict.burgle_polr response returns valid category labels", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
 
-  result <- predict(bfit, newdata = head(iris), original = TRUE, type = "response")
+  result <- predict(bfit, newdata = nd, original = TRUE, type = "response")
 
-  expect_true(all(result %in% levels(iris$Species)))
-  expect_equal(length(result), nrow(head(iris)))
+  expect_true(all(result %in% levels(housing$Sat)))
+  expect_equal(length(result), nrow(nd))
 })
 
 test_that("predict.burgle_polr with multiple draws returns list", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
 
-  result <- predict(bfit, newdata = head(iris), original = FALSE,
+  result <- predict(bfit, newdata = nd, original = FALSE,
                     draws = 3, type = "probs")
 
   expect_true(is.list(result))
@@ -94,12 +113,15 @@ test_that("predict.burgle_polr with multiple draws returns list", {
 test_that("predict.burgle_polr lp is numeric", {
   skip_if_not_installed("MASS")
 
-  fit  <- MASS::polr(Species ~ Sepal.Width + Petal.Width, data = iris,
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
                      Hess = TRUE)
   bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
 
-  result <- predict(bfit, newdata = head(iris), original = TRUE, type = "lp")
+  result <- predict(bfit, newdata = nd, original = TRUE, type = "lp")
 
   expect_true(is.numeric(result))
-  expect_equal(length(result), nrow(head(iris)))
+  expect_equal(length(result), nrow(nd))
 })

@@ -54,9 +54,6 @@ burgle.fixest <- function(object, ...){
     family_name <- object$family$family
     inv_link    <- object$family$linkinv
   }
-  ## Treat Gaussian as OLS (no GLM link inversion needed)
-  is_glm <- !isTRUE(family_name %in% c("gaussian", "Gaussian"))
-
   l <- list(coef      = coef,
             cov       = cov,
             terms     = structural_terms,

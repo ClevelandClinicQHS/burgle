@@ -86,7 +86,7 @@ burgle.polr <- function(object, ...){
 #' @name predict_burgle
 #'
 #' @param type "lp" returns the linear predictor eta; "probs" returns the
-#'   matrix of category probabilities (analagous to predict.polr type="probs");
+#'   matrix of category probabilities (analogous to predict.polr type="probs");
 #'   "response" simulates category draws.
 #'
 #' @name simulate_models

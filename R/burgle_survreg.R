@@ -79,7 +79,7 @@ predict.burgle_survreg <- function(object, newdata, original = TRUE, draws = 1,
 
   models <- draw_models(object, original = original, draws = draws, seed = seed)
 
-  pn <- simulate_models(object, models = models, newdata = newdata, draws = draws,
+  pn <- simulate_models(object, models = models, newdata = newdata,
                         sims = sims, type = type, times = times, seed = seed, ...)
   pn
 }

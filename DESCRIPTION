@@ -21,7 +21,14 @@ Suggests:
     testthat (>= 3.0.0),
     prodlim,
     randomForestSRC,
-    rms
+    rms,
+    lme4,
+    ranger,
+    fixest,
+    betareg,
+    ordinal,
+    randomForest,
+    parsnip
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

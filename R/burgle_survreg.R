@@ -126,7 +126,9 @@ simulate_models.burgle_survreg <- function(object, models = NULL, newdata,
 
   if(type == "lp") return(preds)
 
-  if(is.null(times)) stop("times is missing")
+  if(is.null(times)){
+    stop("times must be provided when type is 'risk' or 'response'")
+  }
 
   nObs <- nrow(newdata)
   n_t  <- length(times)

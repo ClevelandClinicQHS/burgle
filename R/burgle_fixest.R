@@ -100,9 +100,9 @@ simulate_models.burgle_fixest <- function(object, models = NULL, newdata,
   if(!is_glm){
     ## OLS-style feols: simulate Normal responses
     ## Fixed-effect models do not carry a residual MSE by default; use 0 for se
-    se_p <- rowSums(fastmm(mm, object$cov) * mm)
+    se_var <- rowSums(fastmm(mm, object$cov) * mm)
     if(!is.matrix(preds)) preds <- matrix(preds)
-    pn <- simulate_responses(preds, sims, se, sqrt(se_p))
+    pn <- simulate_responses(preds, sims, se, sqrt(se_var))
     pn <- drop_list(pn)
     return(pn)
   }

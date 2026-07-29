@@ -89,25 +89,24 @@ burgle.polr <- function(object, ...){
 #'   matrix of category probabilities (analagous to predict.polr type="probs");
 #'   "response" simulates category draws.
 #'
+#' @name simulate_models
 #' @export
-predict.burgle_polr <- function(object, newdata, original = TRUE, draws = 1,
-                                sims = 1, type = "probs", seed = NULL, ...){
+simulate_models.burgle_polr <- function(object, models = NULL, newdata,
+                                        type = "probs", sims = 1L,
+                                        seed = NULL, ...){
 
+  if(is.null(models)){
+    stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
+  }
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "probs", "response"))
 
-  if(original && draws > 1L) stop("Can only have one draw from the original model")
-
   if(!is.null(seed)) set.seed(seed)
-
-  models <- draw_models(object, original = original, draws = draws, seed = seed)
-  draws  <- if(is.matrix(models)) nrow(models) else 1L
 
   cdf_fn  <- .polr_cdf(object$method)
   n_beta  <- object$n_beta
   n_zeta  <- object$n_zeta
   lev     <- object$lev
-  K       <- length(lev)
 
   ## Design matrix - polr has an intercept in the terms but uses thresholds
   ## (zeta) as intercepts, so remove the intercept column from model matrix
@@ -141,18 +140,31 @@ predict.burgle_polr <- function(object, newdata, original = TRUE, draws = 1,
               simplify = FALSE)
   }
 
-  if(draws == 1L){
-    result <- compute_for_draw(models)
-    if(type == "response" && sims == 1L) result <- result[[1L]]
-    return(result)
+  if(is.matrix(models)){
+    results <- apply(models, 1L, compute_for_draw, simplify = FALSE)
+    if(type == "response" && sims == 1L){
+      results <- lapply(results, function(x) x[[1L]])
+    }
+    return(results)
   }
 
-  ## Multiple draws
-  results <- apply(models, 1L, compute_for_draw, simplify = FALSE)
+  result <- compute_for_draw(models)
+  if(type == "response" && sims == 1L) result <- result[[1L]]
+  result
+}
 
-  if(type == "response" && sims == 1L){
-    results <- lapply(results, function(x) x[[1L]])
-  }
+#' @name predict_burgle
+#'
+#' @export
+predict.burgle_polr <- function(object, newdata, original = TRUE, draws = 1,
+                                sims = 1, type = "probs", seed = NULL, ...){
 
-  results
+  if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
+  type <- match.arg(tolower(type), c("lp", "probs", "response"))
+
+  if(original && draws > 1L) stop("Can only have one draw from the original model")
+
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
+  simulate_models(object, models = models, newdata = newdata, type = type,
+                  sims = sims, seed = seed, ...)
 }

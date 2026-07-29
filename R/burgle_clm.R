@@ -67,18 +67,19 @@ burgle.clm <- function(object, ...){
 #' @param type "lp" returns the linear predictor eta; "probs" returns the
 #'   matrix of category probabilities; "response" simulates category draws.
 #'
+#' @name simulate_models
 #' @export
-predict.burgle_clm <- function(object, newdata, original = TRUE, draws = 1L,
-                               sims = 1L, type = "probs", seed = NULL, ...){
+simulate_models.burgle_clm <- function(object, models = NULL, newdata,
+                                       type = "probs", sims = 1L,
+                                       seed = NULL, ...){
 
+  if(is.null(models)){
+    stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
+  }
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "probs", "response"))
-  if(original && draws > 1L) stop("Can only have one draw from the original model")
 
   if(!is.null(seed)) set.seed(seed)
-
-  models <- draw_models(object, original = original, draws = draws, seed = seed)
-  draws  <- if(is.matrix(models)) nrow(models) else 1L
 
   cdf_fn   <- .clm_cdf(object$link)
   n_alpha  <- object$n_alpha
@@ -134,17 +135,30 @@ predict.burgle_clm <- function(object, newdata, original = TRUE, draws = 1L,
               simplify = FALSE)
   }
 
-  if(draws == 1L){
-    result <- compute_for_draw(models)
-    if(type == "response" && sims == 1L) result <- result[[1L]]
-    return(result)
+  if(is.matrix(models)){
+    results <- apply(models, 1L, compute_for_draw, simplify = FALSE)
+    if(type == "response" && sims == 1L){
+      results <- lapply(results, function(x) x[[1L]])
+    }
+    return(results)
   }
 
-  results <- apply(models, 1L, compute_for_draw, simplify = FALSE)
+  result <- compute_for_draw(models)
+  if(type == "response" && sims == 1L) result <- result[[1L]]
+  result
+}
 
-  if(type == "response" && sims == 1L){
-    results <- lapply(results, function(x) x[[1L]])
-  }
+#' @name predict_burgle
+#'
+#' @export
+predict.burgle_clm <- function(object, newdata, original = TRUE, draws = 1L,
+                               sims = 1L, type = "probs", seed = NULL, ...){
 
-  results
+  if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
+  type <- match.arg(tolower(type), c("lp", "probs", "response"))
+  if(original && draws > 1L) stop("Can only have one draw from the original model")
+
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
+  simulate_models(object, models = models, newdata = newdata, type = type,
+                  sims = sims, seed = seed, ...)
 }

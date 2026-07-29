@@ -69,16 +69,19 @@ burgle.betareg <- function(object, ...){
 #'   inverse link function; "response" simulates values from the beta
 #'   distribution using mu and the precision parameter phi.
 #'
+#' @name simulate_models
 #' @export
-predict.burgle_betareg <- function(object, newdata, original = TRUE, draws = 1L,
-                                   sims = 1L, type = "lp", seed = NULL, ...){
+simulate_models.burgle_betareg <- function(object, models = NULL, newdata,
+                                           type = "lp", sims = 1L,
+                                           seed = NULL, ...){
 
+  if(is.null(models)){
+    stop("Please specify models using `draw_models()`, otherwise use corresponding predict()")
+  }
   if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
   type <- match.arg(tolower(type), c("lp", "link", "response"))
-  if(original && draws > 1L) stop("Can only have one draw from the original model")
 
-  models <- draw_models(object, original = original, draws = draws, seed = seed)
-  draws  <- if(is.matrix(models)) nrow(models) else 1L
+  if(!is.null(seed)) set.seed(seed)
 
   ## Design matrices for mean and precision sub-models
   mm_mean <- stats::model.matrix(object$mean_terms, data = newdata,
@@ -113,17 +116,30 @@ predict.burgle_betareg <- function(object, newdata, original = TRUE, draws = 1L,
               simplify = FALSE)
   }
 
-  if(draws == 1L){
-    result <- compute_for_draw(models)
-    if(type == "response" && sims == 1L) result <- result[[1L]]
-    return(result)
+  if(is.matrix(models)){
+    results <- apply(models, 1L, compute_for_draw, simplify = FALSE)
+    if(type == "response" && sims == 1L){
+      results <- lapply(results, function(x) x[[1L]])
+    }
+    return(results)
   }
 
-  results <- apply(models, 1L, compute_for_draw, simplify = FALSE)
+  result <- compute_for_draw(models)
+  if(type == "response" && sims == 1L) result <- result[[1L]]
+  result
+}
 
-  if(type == "response" && sims == 1L){
-    results <- lapply(results, function(x) x[[1L]])
-  }
+#' @name predict_burgle
+#'
+#' @export
+predict.burgle_betareg <- function(object, newdata, original = TRUE, draws = 1L,
+                                   sims = 1L, type = "lp", seed = NULL, ...){
 
-  results
+  if(!is.data.frame(newdata)) stop("newdata must be an object of class data.frame")
+  type <- match.arg(tolower(type), c("lp", "link", "response"))
+  if(original && draws > 1L) stop("Can only have one draw from the original model")
+
+  models <- draw_models(object, original = original, draws = draws, seed = seed)
+  simulate_models(object, models = models, newdata = newdata, type = type,
+                  sims = sims, seed = seed, ...)
 }

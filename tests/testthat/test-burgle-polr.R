@@ -125,3 +125,20 @@ test_that("predict.burgle_polr lp is numeric", {
   expect_true(is.numeric(result))
   expect_equal(length(result), nrow(nd))
 })
+
+test_that("simulate_models.burgle_polr matches predict for original model", {
+  skip_if_not_installed("MASS")
+
+  data("housing", package = "MASS")
+  housing$Sat <- ordered(housing$Sat, levels = c("Low", "Medium", "High"))
+  fit  <- MASS::polr(Sat ~ Infl + Type + Cont, weights = Freq, data = housing,
+                     Hess = TRUE)
+  bfit <- burgle(fit)
+  nd <- head(subset(housing, select = -c(Sat, Freq)))
+
+  models <- burgle:::draw_models(bfit, original = TRUE, draws = 1)
+  via_predict <- predict(bfit, newdata = nd, original = TRUE, type = "probs")
+  via_sim <- burgle:::simulate_models(bfit, models = models, newdata = nd, type = "probs")
+
+  expect_equal(as.numeric(via_sim), as.numeric(via_predict), tolerance = 1e-8)
+})

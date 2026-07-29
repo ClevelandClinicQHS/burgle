@@ -120,3 +120,18 @@ test_that("predict.burgle_betareg multiple draws returns list", {
   expect_true(is.list(result))
   expect_equal(length(result), 3)
 })
+
+test_that("simulate_models.burgle_betareg matches predict for original model", {
+  skip_if_not_installed("betareg")
+
+  data("GasolineYield", package = "betareg")
+  fit <- betareg::betareg(yield ~ batch + temp | temp, data = GasolineYield)
+  bfit <- burgle(fit)
+  nd <- head(GasolineYield)
+
+  models <- burgle:::draw_models(bfit, original = TRUE, draws = 1)
+  via_predict <- predict(bfit, newdata = nd, original = TRUE, type = "link")
+  via_sim <- burgle:::simulate_models(bfit, models = models, newdata = nd, type = "link")
+
+  expect_equal(via_sim, via_predict, tolerance = 1e-8)
+})

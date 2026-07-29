@@ -157,7 +157,7 @@ simulate_models.burgle_survreg <- function(object, models = NULL, newdata,
   ## type == "response": simulate binary event indicators
   if(is.list(pr0)){
     pn <- lapply(pr0, simulate_responses_binom, sims = sims)
-    if(sims < 2L) pn <- lapply(pn, function(x) if(length(x) == 1L) x[[1L]] else x)
+    if(sims < 2L) pn <- lapply(pn, function(x) if(is.list(x)) x[[1L]] else x)
   } else {
     pn <- simulate_responses_binom(pr0, sims)
     if(sims < 2L) pn <- pn[[1L]]

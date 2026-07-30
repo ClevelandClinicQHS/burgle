@@ -56,13 +56,18 @@ burgle.fixest <- function(object, ...){
   }
   l <- list(coef      = coef,
             cov       = cov,
+            mse       = .burgle_mse(object),
             terms     = structural_terms,
             xlevels   = xlevels,
             contrasts = contrasts,
             family    = family_name,
             inv_link  = inv_link)
 
-  class(l) <- "burgle_fixest"
+  if(family_name %in% c("gaussian", "Gaussian")){
+    class(l) <- c("burgle_lm", "burgle_fixest")
+  } else {
+    class(l) <- c("burgle_glm", "burgle_fixest")
+  }
   l
 }
 

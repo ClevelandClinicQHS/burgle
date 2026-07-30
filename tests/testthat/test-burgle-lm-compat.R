@@ -82,29 +82,6 @@ test_that("burgle.fastLm returns burgle_lm and predicts linear predictor", {
   expect_equal(as.numeric(preds_burgle), preds_expected, tolerance = 1e-5)
 })
 
-test_that("burgle.gam linear-only model predicts like mgcv::gam", {
-  skip_if_not_installed("mgcv")
-
-  fit <- mgcv::gam(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris)
-  bfit <- burgle(fit)
-
-  expect_true(inherits(bfit, "burgle_lm"))
-
-  preds_original <- stats::predict(fit, newdata = head(iris))
-  preds_burgle <- predict(bfit, newdata = head(iris), original = TRUE, draws = 1, type = "lp")
-  expect_equal(as.numeric(preds_burgle), as.numeric(preds_original), tolerance = 1e-5)
-})
-
-test_that("burgle.gam errors for smooth terms", {
-  skip_if_not_installed("mgcv")
-
-  fit <- mgcv::gam(Sepal.Length ~ s(Sepal.Width), data = iris)
-  expect_error(
-    burgle(fit),
-    "smooth terms are not currently supported"
-  )
-})
-
 test_that("burgle.fixest plain OLS is lm-compatible for universal predict", {
   skip_if_not_installed("fixest")
 

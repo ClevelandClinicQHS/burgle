@@ -150,6 +150,13 @@ burgle.biglm <- function(object, ...){
 #' @name burgle_
 #'
 #' @export
+burgle.bigglm <- function(object, ...){
+  .burgle_lm_compat(object)
+}
+
+#' @name burgle_
+#'
+#' @export
 burgle.speedlm <- function(object, ...){
   .burgle_lm_compat(object)
 }
@@ -165,5 +172,17 @@ burgle.speedglm <- function(object, ...){
 #'
 #' @export
 burgle.fastLm <- function(object, ...){
+  .burgle_lm_compat(object)
+}
+
+#' @name burgle_
+#'
+#' @export
+burgle.gam <- function(object, ...){
+  has_smooth <- !is.null(object$smooth) && length(object$smooth) > 0L
+  if(has_smooth){
+    stop("mgcv::gam models with smooth terms are not currently supported by burgle(). ",
+         "Use models with linear predictor terms only.")
+  }
   .burgle_lm_compat(object)
 }

@@ -47,6 +47,23 @@ test_that("burgle.speedglm returns burgle_glm for binomial models", {
   expect_true(all(result %in% 0:1))
 })
 
+test_that("burgle.bigglm returns burgle_glm for binomial models", {
+  skip_if_not_installed("biglm")
+
+  dat <- iris
+  dat$bin_y <- as.integer(dat$Species == "versicolor")
+
+  fit <- biglm::bigglm(bin_y ~ Sepal.Width + Petal.Length,
+                       family = stats::binomial(),
+                       data = dat)
+  bfit <- burgle(fit)
+
+  expect_true(inherits(bfit, "burgle_glm"))
+
+  result <- predict(bfit, newdata = head(dat), original = TRUE, type = "response")
+  expect_true(all(result %in% 0:1))
+})
+
 test_that("burgle.fastLm returns burgle_lm and predicts linear predictor", {
   skip_if_not_installed("RcppArmadillo")
 
@@ -63,6 +80,29 @@ test_that("burgle.fastLm returns burgle_lm and predicts linear predictor", {
   preds_expected <- as.numeric(mm %*% stats::coef(fit))
 
   expect_equal(as.numeric(preds_burgle), preds_expected, tolerance = 1e-5)
+})
+
+test_that("burgle.gam linear-only model predicts like mgcv::gam", {
+  skip_if_not_installed("mgcv")
+
+  fit <- mgcv::gam(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris)
+  bfit <- burgle(fit)
+
+  expect_true(inherits(bfit, "burgle_lm"))
+
+  preds_original <- stats::predict(fit, newdata = head(iris))
+  preds_burgle <- predict(bfit, newdata = head(iris), original = TRUE, draws = 1, type = "lp")
+  expect_equal(as.numeric(preds_burgle), as.numeric(preds_original), tolerance = 1e-5)
+})
+
+test_that("burgle.gam errors for smooth terms", {
+  skip_if_not_installed("mgcv")
+
+  fit <- mgcv::gam(Sepal.Length ~ s(Sepal.Width), data = iris)
+  expect_error(
+    burgle(fit),
+    "smooth terms are not currently supported"
+  )
 })
 
 test_that("burgle.fixest plain OLS is lm-compatible for universal predict", {

@@ -16,6 +16,9 @@ Imports:
     riskRegression (>= 2023.03.22),
     survival (>= 3.5-3)
 Suggests:
+    biglm,
+    speedglm,
+    RcppArmadillo,
     flexsurv (>= 2.2.2),
     nnet (>= 7.3-18),
     testthat (>= 3.0.0),
@@ -28,7 +31,8 @@ Suggests:
     betareg,
     ordinal,
     randomForest,
-    parsnip
+    parsnip,
+    mgcv
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

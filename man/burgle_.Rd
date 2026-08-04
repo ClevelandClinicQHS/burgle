@@ -7,6 +7,12 @@
 \alias{burgle}
 \alias{burgle.lm}
 \alias{burgle.glm}
+\alias{burgle.biglm}
+\alias{burgle.bigglm}
+\alias{burgle.speedlm}
+\alias{burgle.speedglm}
+\alias{burgle.fastLm}
+\alias{burgle.gam}
 \alias{burgle.CauseSpecificCox}
 \alias{burgle.cph}
 \alias{burgle.flexsurvreg}
@@ -20,6 +26,18 @@ burgle(object, ...)
 \method{burgle}{lm}(object, ...)
 
 \method{burgle}{glm}(object, ...)
+
+\method{burgle}{biglm}(object, ...)
+
+\method{burgle}{bigglm}(object, ...)
+
+\method{burgle}{speedlm}(object, ...)
+
+\method{burgle}{speedglm}(object, ...)
+
+\method{burgle}{fastLm}(object, ...)
+
+\method{burgle}{gam}(object, ...)
 
 \method{burgle}{CauseSpecificCox}(object, ...)
 

@@ -113,18 +113,40 @@ burgle.gamlss <- function(object, ...){
 
 ## ---- helpers ----------------------------------------------------------------
 
-## Resolve a gamlss link name to an inverse-link function
+## Resolve a gamlss link name to an inverse-link function.
+## Delegates to gamlss.dist::make.link.gamlss() when available so that all
+## gamlss-specific links (logshiftto1, logshiftto2, mu^2, inverse, (0,2],
+## [-1,1], Slog, own, …) are handled correctly.  Falls back to a small
+## hand-coded table for the most common links so that "lp" and "link"
+## predictions work even without gamlss installed at prediction time.
 .gamlss_inv_link <- function(link){
   if(is.null(link) || !nzchar(link)) return(identity)
+
+  ## First try the authoritative gamlss resolver
+  if(requireNamespace("gamlss.dist", quietly = TRUE)){
+    lobj <- tryCatch(
+      gamlss.dist::make.link.gamlss(link),
+      error = function(e) NULL
+    )
+    if(!is.null(lobj) && is.function(lobj$linkinv)) return(lobj$linkinv)
+  }
+
+  ## Fallback hand-coded table for common links (no gamlss.dist required)
   switch(link,
-    "identity" = identity,
-    "log"      = exp,
-    "logit"    = stats::plogis,
-    "probit"   = stats::pnorm,
-    "cloglog"  = function(x) 1 - exp(-exp(x)),
-    "sqrt"     = function(x) x^2,
-    "inverse"  = function(x) 1 / x,
-    ## fallback: attempt make.link
+    "identity"     = identity,
+    "log"          = exp,
+    "logit"        = stats::plogis,
+    "probit"       = stats::pnorm,
+    "cloglog"      = function(x) 1 - exp(-exp(x)),
+    "sqrt"         = function(x) x^2,
+    "inverse"      = function(x) 1 / x,
+    "mu^2"         = function(x) sqrt(pmax(x, 0)),
+    "logshiftto1"  = function(x) 1 + exp(x),
+    "logshiftto2"  = function(x) 2 + exp(x),
+    "logshiftto0"  = function(x) .Machine$double.eps + exp(x),
+    "Slog"         = function(x) .Machine$double.eps + exp(x),
+    ## gamlss scaled-logit links of the form "(lo,hi]"
+    ## fall back to identity if stats::make.link also fails
     tryCatch(stats::make.link(link)$linkinv, error = function(e) identity)
   )
 }
@@ -237,26 +259,32 @@ simulate_models.burgle_gamlss <- function(object, models = NULL, newdata,
 }
 
 
-## Resolve the random-variate function for a gamlss family
+## Resolve the random-variate function for a gamlss family.
+## gamlss family r-functions are named r<FAMILY>, e.g. rNO, rGA, rBE.
+## They live in either gamlss.dist or (for a small number of families
+## introduced in newer versions) directly in gamlss.
 .gamlss_rfun <- function(family_name){
-  ## gamlss family r-functions are named r<FAMILY>, e.g. rNO, rGA, rBE
   rfun_name <- paste0("r", family_name)
+
+  ## Search namespaces in order: gamlss.dist, gamlss, then global env
+  for(pkg in c("gamlss.dist", "gamlss")){
+    if(requireNamespace(pkg, quietly = TRUE)){
+      rfun <- tryCatch(
+        get(rfun_name, envir = asNamespace(pkg), inherits = FALSE),
+        error = function(e) NULL
+      )
+      if(!is.null(rfun) && is.function(rfun)) return(rfun)
+    }
+  }
   rfun <- tryCatch(
-    get(rfun_name, envir = asNamespace("gamlss.dist"), inherits = FALSE),
+    get(rfun_name, envir = .GlobalEnv, inherits = TRUE),
     error = function(e) NULL
   )
-  if(is.null(rfun)){
-    rfun <- tryCatch(
-      get(rfun_name, envir = .GlobalEnv, inherits = TRUE),
-      error = function(e) NULL
-    )
-  }
-  if(is.null(rfun)){
-    stop("Cannot find random variate function '", rfun_name,
-         "' for gamlss family '", family_name, "'. ",
-         "Ensure the gamlss or gamlss.dist package is installed and loaded.")
-  }
-  rfun
+  if(!is.null(rfun) && is.function(rfun)) return(rfun)
+
+  stop("Cannot find random variate function '", rfun_name,
+       "' for gamlss family '", family_name, "'. ",
+       "Ensure the gamlss or gamlss.dist package is installed and loaded.")
 }
 
 

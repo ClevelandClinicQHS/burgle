@@ -32,7 +32,9 @@ Suggests:
     ordinal,
     randomForest,
     parsnip,
-    mgcv
+    mgcv,
+    gamlss,
+    gamlss.dist
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

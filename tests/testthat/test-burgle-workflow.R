@@ -295,8 +295,19 @@ test_that("burgle.workflow supports multinom workflows with compiled recipe term
     type = "probs"
   )
   actual <- predict(bfit, newdata = new_dat, type = "odds")
+  compiled_mm <- stats::model.matrix(
+    bfit$terms,
+    data = new_dat,
+    xlev = bfit$xlevels,
+    contrasts.arg = bfit$contrasts
+  )
+  expected_coef_names <- unlist(lapply(
+    bfit$rlev[-1],
+    function(x) paste0(x, ":", colnames(compiled_mm))
+  ))
 
   expect_s3_class(bfit, "burgle_multinom")
+  expect_equal(names(bfit$coef), expected_coef_names)
   expect_equal(unname(actual), unname(expected), tolerance = 1e-6)
 })
 

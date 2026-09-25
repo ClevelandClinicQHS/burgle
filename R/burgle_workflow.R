@@ -893,7 +893,12 @@ workflow_align_simple_object <- function(object, old_mm, new_mm, column_map) {
 }
 
 workflow_align_flexsurvreg_object <- function(object, old_mm, new_mm, column_map) {
-  covariate_indices <- setdiff(seq_along(object$coef), object$pars_indeces)
+  parameter_indices <- object$pars_indices
+  if (is.null(parameter_indices)) {
+    parameter_indices <- object$pars_indeces
+  }
+
+  covariate_indices <- setdiff(seq_along(object$coef), parameter_indices)
 
   if (length(covariate_indices) != ncol(old_mm)) {
     stop(
@@ -938,12 +943,15 @@ workflow_align_multinom_object <- function(object, old_mm, new_mm, column_map) {
   coef <- object$coef
   cov <- object$cov
   perm <- integer(length(coef))
-  new_names <- names(coef)
+  block_names <- colnames(new_mm)[column_map$new_order]
+  old_names <- names(coef)
+  new_names <- character(length(coef))
 
   for (i in seq_len(rnl)) {
     block <- ((i - 1L) * p + 1L):(i * p)
     perm[block] <- block[column_map$old_order]
-    new_names[block] <- names(coef)[perm[block]]
+    prefix <- sub(colnames(old_mm)[1], "", old_names[block[1]], fixed = TRUE)
+    new_names[block] <- paste0(prefix, block_names)
   }
 
   coef <- unname(coef[perm])

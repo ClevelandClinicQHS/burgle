@@ -169,3 +169,46 @@ test_that("burgle.workflow rejects unsafe factor interactions", {
     "step_interact\\(\\) is only supported when every referenced column is scalar"
   )
 })
+
+test_that("burgle.workflow compiles harmonic date features", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  dat <- data.frame(
+    y = factor(rep(c("no", "yes"), length.out = 60)),
+    d = as.Date("2024-01-01") + seq_len(60),
+    x = seq(-1, 1, length.out = 60)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ d + x, data = dat) |>
+        recipes::step_harmonic(d, frequency = c(1, 2), cycle_size = 7)
+    ) |>
+    workflows::add_model(
+      parsnip::logistic_reg() |>
+        parsnip::set_engine("glm")
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    y = factor(rep("no", 5), levels = levels(dat$y)),
+    d = as.Date("2024-04-01") + 0:4,
+    x = seq(-0.5, 0.5, length.out = 5)
+  )
+
+  baked <- recipes::bake(
+    workflows::extract_recipe(wf),
+    new_data = new_dat
+  )
+  expected <- stats::predict(
+    workflows::extract_fit_engine(wf),
+    newdata = baked,
+    type = "link"
+  )
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
+
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
+})

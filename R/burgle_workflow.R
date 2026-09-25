@@ -229,8 +229,7 @@ workflow_initial_state <- function(data, predictor_names) {
 
     state[[i]] <- list(
       expr = as.name(name),
-      scalar = scalar,
-      classes = class(x)
+      scalar = scalar
     )
   }
 
@@ -416,12 +415,6 @@ workflow_compile_step_harmonic <- function(state, step) {
 
   for (col in cols) {
     entry <- workflow_get_entry(state, col, class(step)[1])
-    if ("Date" %in% entry$classes || any(entry$classes %in% c("POSIXct", "POSIXlt"))) {
-      workflow_stop_step(
-        class(step)[1],
-        "step_harmonic() is only supported for numeric columns; date/time inputs depend on units and origin handling that cannot be compiled losslessly here."
-      )
-    }
     for (i in seq_len(n_frequency)) {
       freq <- unname(step$frequency[[i]])
       sin_name <- paste0(col, "_sin_", i)

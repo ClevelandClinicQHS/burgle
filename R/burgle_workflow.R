@@ -950,7 +950,12 @@ workflow_align_multinom_object <- function(object, old_mm, new_mm, column_map) {
   for (i in seq_len(rnl)) {
     block <- ((i - 1L) * p + 1L):(i * p)
     perm[block] <- block[column_map$old_order]
-    prefix <- sub(colnames(old_mm)[1], "", old_names[block[1]], fixed = TRUE)
+    prefix <- old_names[block[1]]
+    if (endsWith(prefix, colnames(old_mm)[1])) {
+      prefix <- substr(prefix, 1L, nchar(prefix) - nchar(colnames(old_mm)[1]))
+    } else {
+      prefix <- ""
+    }
     new_names[block] <- paste0(prefix, block_names)
   }
 

@@ -355,8 +355,15 @@ test_that("burgle.workflow supports proportional hazards workflows when censored
     type = "lp"
   )
   actual <- predict(bfit, newdata = new_dat, type = "lp")
+  compiled_mm <- stats::model.matrix(
+    bfit$terms,
+    data = new_dat,
+    xlev = bfit$xlevels,
+    contrasts.arg = bfit$contrasts
+  )[, -1, drop = FALSE]
 
   expect_s3_class(bfit, "burgle_coxph")
+  expect_equal(names(bfit$coef), colnames(compiled_mm))
   expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 

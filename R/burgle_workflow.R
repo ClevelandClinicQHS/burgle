@@ -905,6 +905,11 @@ workflow_align_flexsurvreg_object <- function(object, old_mm, new_mm, column_map
   if (is.null(parameter_indices)) {
     parameter_indices <- object$pars_indeces
   }
+  if (is.null(parameter_indices)) {
+    stop(
+      "burgle.workflow() could not identify the distribution-parameter indices for the burgled flexsurv workflow."
+    )
+  }
 
   covariate_indices <- setdiff(seq_along(object$coef), parameter_indices)
 

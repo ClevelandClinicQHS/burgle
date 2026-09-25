@@ -464,6 +464,7 @@ test_that("burgle.workflow supports flexsurv workflows when censored is availabl
   if (is.null(parameter_indices)) {
     parameter_indices <- bfit$pars_indeces
   }
+  expect_false(is.null(parameter_indices))
   covariate_indices <- setdiff(seq_along(bfit$coef), parameter_indices)
 
   expect_s3_class(bfit, "burgle_flexsurvreg")

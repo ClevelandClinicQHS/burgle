@@ -144,6 +144,34 @@ test_that("burgle.workflow rejects unsafe step_lag recipes", {
   )
 })
 
+test_that("burgle.workflow rejects baked matrix or list predictor columns", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  dat <- data.frame(
+    y = factor(rep(c("no", "yes"), length.out = 40)),
+    grp = factor(rep(c("a", "b"), length.out = 40)),
+    x = stats::runif(40)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ grp + x, data = dat) |>
+        recipes::step_dummy(grp, sparse = "yes")
+    ) |>
+    workflows::add_model(
+      parsnip::logistic_reg() |>
+        parsnip::set_engine("glm")
+    ) |>
+    workflows::fit(data = dat)
+
+  expect_error(
+    burgle(wf),
+    "does not support workflows whose baked predictors contain matrix or list columns"
+  )
+})
+
 test_that("burgle.workflow rejects unsafe factor interactions", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("recipes")

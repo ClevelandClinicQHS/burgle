@@ -182,7 +182,7 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
 
   compiled_terms <- stats::terms(compiled_formula, data = raw_training_used)
 
-  mf <- stats::model.frame(compiled_formula, data = raw_training_used, na.action = stats::na.omit)
+  mf <- stats::model.frame(compiled_formula, data = raw_training_used, na.action = stats::na.pass)
   xlevels <- stats::.getXlevels(compiled_terms, mf)
 
   contrasts <- burgled$contrasts
@@ -619,8 +619,16 @@ workflow_ns_call <- function(x, object) {
 }
 
 workflow_splines2_call <- function(x, object) {
-  fn <- workflow_namespace_function("splines2", object$.fn)
-  arg_names <- setdiff(names(formals(fn)), "...")
+  arg_names <- switch(
+    object$.fn,
+    bSpline = c("df", "degree", "knots", "Boundary.knots", "intercept", "complete_basis", "periodic", "derivs", "integral", "warn.outside"),
+    naturalSpline = c("df", "knots", "Boundary.knots", "intercept", "complete_basis", "derivs", "integral", "warn.outside"),
+    iSpline = c("df", "degree", "knots", "Boundary.knots", "intercept", "complete_basis", "derivs", "integral", "warn.outside"),
+    cSpline = c("df", "degree", "knots", "Boundary.knots", "intercept", "complete_basis", "derivs", "integral", "scale", "warn.outside"),
+    mSpline = c("df", "degree", "knots", "Boundary.knots", "intercept", "complete_basis", "periodic", "derivs", "integral", "warn.outside"),
+    bernsteinPoly = c("degree", "intercept", "complete_basis", "derivs", "integral"),
+    character()
+  )
   arg_names <- intersect(arg_names, names(object))
   args <- object[arg_names]
   args$x <- x
@@ -861,13 +869,16 @@ workflow_validate_baked_predictors <- function(baked_predictors) {
 }
 
 workflow_training_rows <- function(raw_training, baked_predictors) {
+  raw_rows <- rownames(raw_training)
+  baked_rows <- rownames(baked_predictors)
   training_rows <- suppressWarnings(as.integer(rownames(baked_predictors)))
 
   if (length(training_rows) == nrow(baked_predictors) && !anyNA(training_rows)) {
     return(raw_training[training_rows, , drop = FALSE])
   }
 
-  if (nrow(raw_training) == nrow(baked_predictors)) {
+  if (!is.null(raw_rows) && !is.null(baked_rows) &&
+      identical(baked_rows, raw_rows[seq_len(length(baked_rows))])) {
     return(raw_training)
   }
 

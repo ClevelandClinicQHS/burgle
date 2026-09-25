@@ -924,11 +924,10 @@ workflow_align_flexsurvreg_object <- function(object, old_mm, new_mm, column_map
     )
   }
 
-  coef[covariate_indices] <- unname(coef[covariate_indices][column_map$old_order])
-  names(coef)[covariate_indices] <- colnames(new_mm)[column_map$new_order]
-
   perm <- seq_along(coef)
   perm[covariate_indices] <- covariate_indices[column_map$old_order]
+  coef <- coef[perm]
+  names(coef)[covariate_indices] <- colnames(new_mm)[column_map$new_order]
   cov <- cov[perm, perm, drop = FALSE]
   rownames(cov) <- names(coef)
   colnames(cov) <- names(coef)

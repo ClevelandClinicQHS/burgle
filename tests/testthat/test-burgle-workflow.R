@@ -367,6 +367,111 @@ test_that("burgle.workflow supports proportional hazards workflows when censored
   expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 
+test_that("burgle.workflow supports rms cph workflows when censored is available", {
+  skip_if_not_installed("censored")
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("rms")
+  skip_if_not_installed("survival")
+  skip_if_not_installed("workflows")
+
+  set.seed(405)
+  n <- 80
+  dat <- data.frame(
+    time = stats::rexp(n, rate = 0.1),
+    status = stats::rbinom(n, 1, 0.7),
+    x1 = stats::rnorm(n),
+    x2 = stats::runif(n, 0.2, 2)
+  )
+
+  dd <- rms::datadist(dat)
+  old_opt <- options(datadist = "dd")
+  on.exit(options(old_opt), add = TRUE)
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(survival::Surv(time, status) ~ x1 + x2, data = dat) |>
+        recipes::step_bs(x2, deg_free = 4)
+    ) |>
+    workflows::add_model(
+      censored::proportional_hazards() |>
+        parsnip::set_engine("rms", x = TRUE, y = TRUE, surv = TRUE)
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    time = 1,
+    status = 1,
+    x1 = seq(-1, 1, length.out = 4),
+    x2 = seq(0.3, 1.7, length.out = 4)
+  )
+
+  compiled_mm <- stats::model.matrix(
+    bfit$terms,
+    data = new_dat,
+    xlev = bfit$xlevels,
+    contrasts.arg = bfit$contrasts
+  )[, -1, drop = FALSE]
+
+  expect_s3_class(bfit, "burgle_cph")
+  expect_equal(names(bfit$coef), colnames(compiled_mm))
+})
+
+test_that("burgle.workflow supports flexsurv workflows when censored is available", {
+  skip_if_not_installed("censored")
+  skip_if_not_installed("flexsurv")
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("survival")
+  skip_if_not_installed("workflows")
+
+  set.seed(406)
+  n <- 80
+  dat <- data.frame(
+    time = stats::rexp(n, rate = 0.1),
+    status = stats::rbinom(n, 1, 0.7),
+    x1 = stats::rnorm(n),
+    x2 = stats::runif(n, 0.2, 2)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(survival::Surv(time, status) ~ x1 + x2, data = dat) |>
+        recipes::step_ns(x2, deg_free = 3)
+    ) |>
+    workflows::add_model(
+      censored::survival_reg() |>
+        parsnip::set_engine("flexsurv", dist = "weibull")
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    time = 1,
+    status = 1,
+    x1 = seq(-1, 1, length.out = 4),
+    x2 = seq(0.3, 1.7, length.out = 4)
+  )
+
+  compiled_mm <- stats::model.matrix(
+    bfit$terms,
+    data = new_dat,
+    xlev = bfit$xlevels,
+    contrasts.arg = bfit$contrasts
+  )[, -1, drop = FALSE]
+  parameter_indices <- bfit$pars_indices
+  if (is.null(parameter_indices)) {
+    parameter_indices <- bfit$pars_indeces
+  }
+  covariate_indices <- setdiff(seq_along(bfit$coef), parameter_indices)
+
+  expect_s3_class(bfit, "burgle_flexsurvreg")
+  expect_equal(names(bfit$coef)[covariate_indices], colnames(compiled_mm))
+  expect_equal(rownames(bfit$cov), names(bfit$coef))
+  expect_equal(colnames(bfit$cov), names(bfit$coef))
+})
+
 test_that("burgle.workflow rejects transformed recipes for non-terms engines", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("randomForestSRC")

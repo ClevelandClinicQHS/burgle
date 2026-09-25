@@ -851,7 +851,8 @@ workflow_model_matrix <- function(object, terms, data, xlev, contrasts.arg) {
     contrasts.arg = contrasts.arg
   )
 
-  if (inherits(object, c("burgle_coxph", "burgle_cph", "burgle_flexsurvreg"))) {
+  if (inherits(object, c("burgle_coxph", "burgle_cph", "burgle_flexsurvreg")) &&
+      workflow_terms_intercept(terms)) {
     mm <- mm[, setdiff(seq_len(ncol(mm)), 1L), drop = FALSE]
     attr(mm, "assign") <- attr(mm, "assign")[-1]
   }

@@ -400,12 +400,16 @@ test_that("burgle.workflow supports rms cph workflows when censored is available
     workflows::fit(data = dat)
 
   bfit <- burgle(wf)
+  engine_bfit <- burgle(workflows::extract_fit_engine(wf))
   new_dat <- data.frame(
     time = 1,
     status = 1,
     x1 = seq(-1, 1, length.out = 4),
     x2 = seq(0.3, 1.7, length.out = 4)
   )
+  baked <- workflow_baked_predictors(wf, new_dat)
+  expected <- predict(engine_bfit, newdata = baked, type = "lp")
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
 
   compiled_mm <- stats::model.matrix(
     bfit$terms,
@@ -416,6 +420,7 @@ test_that("burgle.workflow supports rms cph workflows when censored is available
 
   expect_s3_class(bfit, "burgle_cph")
   expect_equal(names(bfit$coef), colnames(compiled_mm))
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 
 test_that("burgle.workflow supports flexsurv workflows when censored is available", {
@@ -447,12 +452,16 @@ test_that("burgle.workflow supports flexsurv workflows when censored is availabl
     workflows::fit(data = dat)
 
   bfit <- burgle(wf)
+  engine_bfit <- burgle(workflows::extract_fit_engine(wf))
   new_dat <- data.frame(
     time = 1,
     status = 1,
     x1 = seq(-1, 1, length.out = 4),
     x2 = seq(0.3, 1.7, length.out = 4)
   )
+  baked <- workflow_baked_predictors(wf, new_dat)
+  expected <- predict(engine_bfit, newdata = baked, type = "lp")
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
 
   compiled_mm <- stats::model.matrix(
     bfit$terms,
@@ -471,6 +480,7 @@ test_that("burgle.workflow supports flexsurv workflows when censored is availabl
   expect_equal(names(bfit$coef)[covariate_indices], colnames(compiled_mm))
   expect_equal(rownames(bfit$cov), names(bfit$coef))
   expect_equal(colnames(bfit$cov), names(bfit$coef))
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 
 test_that("burgle.workflow rejects transformed recipes for non-terms engines", {

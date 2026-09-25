@@ -189,7 +189,7 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
   compiled_terms <- stats::terms(compiled_formula, data = raw_training_used)
 
   mf <- stats::model.frame(compiled_formula, data = raw_training_used, na.action = stats::na.pass)
-  xlevels <- stats::.getXlevels(compiled_terms, mf)
+  xlevels <- workflow_get_xlevels(compiled_terms, mf)
 
   contrasts <- burgled$contrasts
   if (length(contrasts) > 0L) {
@@ -870,6 +870,17 @@ workflow_validate_baked_predictors <- function(baked_predictors) {
       "burgle.workflow() does not support workflows whose baked predictors contain matrix or list columns, including sparse or multi-column recipe outputs such as `",
       bad_columns[[1]],
       "`."
+    )
+  }
+
+  workflow_get_xlevels <- function(terms, model_frame) {
+    vars <- attr(terms, "dataClasses")
+    vars <- vars[names(vars) != "(response)"]
+    factor_vars <- names(vars)[vars %in% c("factor", "ordered")]
+
+    setNames(
+      lapply(factor_vars, function(x) levels(model_frame[[x]])),
+      factor_vars
     )
   }
 }

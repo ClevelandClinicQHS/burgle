@@ -796,6 +796,10 @@ workflow_match_columns <- function(old, new, tolerance = 1e-8) {
 }
 
 workflow_design_groups <- function(mm, terms) {
+  if (ncol(mm) == 0L) {
+    return(list())
+  }
+
   assign <- attr(mm, "assign")
   groups <- split(seq_len(ncol(mm)), assign)
 
@@ -810,6 +814,8 @@ workflow_design_groups <- function(mm, terms) {
       idx <- as.integer(x)
       if (is.na(idx) || idx == 0L) {
         "(Intercept)"
+      } else if (idx > length(labels)) {
+        as.character(idx)
       } else {
         labels[[idx]]
       }
@@ -846,10 +852,8 @@ workflow_model_matrix <- function(object, terms, data, xlev, contrasts.arg) {
   )
 
   if (inherits(object, c("burgle_coxph", "burgle_cph", "burgle_flexsurvreg"))) {
-    if (ncol(mm) <= 1L) {
-      return(matrix(0, nrow = nrow(data), ncol = 0L))
-    }
-    mm <- mm[, -1, drop = FALSE]
+    mm <- mm[, setdiff(seq_len(ncol(mm)), 1L), drop = FALSE]
+    attr(mm, "assign") <- attr(mm, "assign")[-1]
   }
 
   mm

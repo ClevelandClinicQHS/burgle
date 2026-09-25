@@ -128,7 +128,7 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
     step_subclass <- sub("^step_", "", step_class)
 
     if (isTRUE(step$skip)) {
-      stop("Recipe step `", step_class, "` uses `skip = TRUE` and cannot be compiled safely for raw-data prediction.")
+      next
     }
 
     step_result <- workflow_compile_step(
@@ -186,9 +186,19 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
   column_map <- workflow_validate_design_matrices(old_mm, new_mm)
 
   coef <- stats::coef(engine)
+  if (anyNA(coef) || !all(colnames(old_mm) %in% names(coef))) {
+    stop(
+      "burgle.workflow() does not support rank-deficient or aliased workflow fits because the fitted glm coefficients are not fully aligned with the baked design matrix columns."
+    )
+  }
   coef <- coef[colnames(old_mm)]
 
   cov <- stats::vcov(engine)
+  if (!all(colnames(old_mm) %in% rownames(cov)) || !all(colnames(old_mm) %in% colnames(cov))) {
+    stop(
+      "burgle.workflow() does not support rank-deficient or aliased workflow fits because the fitted glm covariance matrix is not fully aligned with the baked design matrix columns."
+    )
+  }
   cov <- cov[colnames(old_mm), colnames(old_mm), drop = FALSE]
 
   coef_new <- unname(coef[column_map$old_order])
@@ -219,7 +229,8 @@ workflow_initial_state <- function(data, predictor_names) {
 
     state[[i]] <- list(
       expr = as.name(name),
-      scalar = scalar
+      scalar = scalar,
+      classes = class(x)
     )
   }
 
@@ -405,6 +416,12 @@ workflow_compile_step_harmonic <- function(state, step) {
 
   for (col in cols) {
     entry <- workflow_get_entry(state, col, class(step)[1])
+    if ("Date" %in% entry$classes || any(entry$classes %in% c("POSIXct", "POSIXlt"))) {
+      workflow_stop_step(
+        class(step)[1],
+        "step_harmonic() is only supported for numeric columns; date/time inputs depend on units and origin handling that cannot be compiled losslessly here."
+      )
+    }
     for (i in seq_len(n_frequency)) {
       freq <- unname(step$frequency[[i]])
       sin_name <- paste0(col, "_sin_", i)
@@ -459,7 +476,10 @@ workflow_compile_step_ratio <- function(state, step) {
 workflow_compile_step_interact <- function(state, step) {
   objects <- step$objects
   if (is.null(objects)) {
-    return(list(state = state, required_pkgs = character()))
+    workflow_stop_step(
+      class(step)[1],
+      "step_interact() must be trained before compilation; no interaction objects were available."
+    )
   }
 
   new_entries <- list()

@@ -78,7 +78,24 @@ test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
   )
 
   bfit <- burgle(wf)
-  new_dat <- dat[1:10, ]
+  new_dat <- data.frame(
+    y = factor(rep("no", 10), levels = levels(dat$y)),
+    x1 = seq(-1.5, 1.5, length.out = 10),
+    x2 = seq(0.25, 1.95, length.out = 10),
+    x3 = seq(0.3, 1.9, length.out = 10),
+    x4 = seq(0.35, 1.85, length.out = 10),
+    x5 = seq(0.4, 1.8, length.out = 10),
+    x6 = seq(0.45, 1.75, length.out = 10),
+    x7 = seq(0.5, 1.7, length.out = 10),
+    x8 = seq(0.55, 1.65, length.out = 10),
+    x9 = seq(0.6, 1.6, length.out = 10),
+    x10 = seq(1.2, 4.8, length.out = 10),
+    x11 = seq(1.1, 4.6, length.out = 10),
+    x12 = seq(1.3, 4.9, length.out = 10),
+    x13 = seq(-2, 2, length.out = 10),
+    p1 = seq(0.15, 0.85, length.out = 10),
+    t1 = seq(5, 95, length.out = 10)
+  )
 
   baked <- recipes::bake(
     workflows::extract_recipe(wf),

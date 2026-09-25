@@ -470,9 +470,6 @@ test_that("burgle.workflow supports flexsurv workflows when censored is availabl
     contrasts.arg = bfit$contrasts
   )[, -1, drop = FALSE]
   parameter_indices <- bfit$pars_indices
-  if (is.null(parameter_indices)) {
-    parameter_indices <- bfit$pars_indeces
-  }
   expect_false(is.null(parameter_indices))
   covariate_indices <- setdiff(seq_along(bfit$coef), parameter_indices)
 

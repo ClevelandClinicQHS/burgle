@@ -37,12 +37,28 @@ burgle.flexsurvreg <- function(object, ...){
             p_f = pf, p_h = hz, p_q = qn,
             e_times = unq,
             inv.transforms = inv_t,
-            pars_indeces = pars_i,
+            pars_indices = pars_i,
             location = loc,
-            opars_indeces = opars_i)
+            opars_indices = opars_i)
   class(l) <- "burgle_flexsurvreg"
   l
 
+}
+
+flexsurv_pars_indices <- function(object) {
+  idx <- object$pars_indices
+  if (is.null(idx)) {
+    idx <- object$pars_indeces
+  }
+  idx
+}
+
+flexsurv_other_pars_indices <- function(object) {
+  idx <- object$opars_indices
+  if (is.null(idx)) {
+    idx <- object$opars_indeces
+  }
+  idx
 }
 
 #' @name predict_burgle
@@ -323,25 +339,27 @@ simulate_models.burgle_flexsurvreg <- function(object, models = NULL, newdata = 
   # }
 
   draws <- if(is.matrix(models)) nrow(models) else 1
+  pars_indices <- flexsurv_pars_indices(object)
+  opars_indices <- flexsurv_other_pars_indices(object)
 
   if(draws == 1L){
-    params <- models[object$pars_indeces]
+    params <- models[pars_indices]
     locs <- models[object$location]
-    o_params <- models[object$opars_indeces]
-    models <- models[-object$pars_indeces]
-    if(length(o_params) > 0L) o_params <- mapply(function(x, y) y(x), o_params, object$inv.transforms[object$opars_indeces])
+    o_params <- models[opars_indices]
+    models <- models[-pars_indices]
+    if(length(o_params) > 0L) o_params <- mapply(function(x, y) y(x), o_params, object$inv.transforms[opars_indices])
     if(length(models) == 0L){
       models <- 0L
     }
   }else{
-    params <- models[,object$pars_indeces]
+    params <- models[,pars_indices]
     locs <- models[,object$location]
-    o_params <- models[,object$opars_indeces]
-    models <- matrix(models[,-object$pars_indeces], nrow= draws)
+    o_params <- models[,opars_indices]
+    models <- matrix(models[,-pars_indices], nrow= draws)
     if(is.null(dim(o_params))){
-      o_params <- mapply(function(x, y) y(o_params[x]), 1:length(o_params), object$inv.transforms[object$opars_indeces])
+      o_params <- mapply(function(x, y) y(o_params[x]), 1:length(o_params), object$inv.transforms[opars_indices])
     }else{
-      o_params <- mapply(function(x, y) y(o_params[, x]), 1:ncol(o_params), object$inv.transforms[object$opars_indeces])
+      o_params <- mapply(function(x, y) y(o_params[, x]), 1:ncol(o_params), object$inv.transforms[opars_indices])
     }
     if(length(models) == 0L){
       models <- matrix(0, nrow = draws)
@@ -390,7 +408,7 @@ simulate_models.burgle_flexsurvreg <- function(object, models = NULL, newdata = 
   if(draws == 1){
 
     list_pr <- append(as.list(o_params), list(p = preds))
-    names(list_pr) <- c(nc[object$opars_indeces], nc[object$location])
+    names(list_pr) <- c(nc[opars_indices], nc[object$location])
     if(type == "time"){
       ps <- stats::runif(n = nrow(newdata))
       list_pr <- append(list_pr, list(p = ps))
@@ -421,7 +439,7 @@ simulate_models.burgle_flexsurvreg <- function(object, models = NULL, newdata = 
 
       }
 
-      list_pr <- lapply(list_pr, setNames, c(nc[object$opars_indeces], nc[object$location]))
+      list_pr <- lapply(list_pr, setNames, c(nc[opars_indices], nc[object$location]))
 
     }else{
 

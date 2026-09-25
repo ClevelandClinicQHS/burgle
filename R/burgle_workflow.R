@@ -902,10 +902,7 @@ workflow_align_simple_object <- function(object, old_mm, new_mm, column_map) {
 }
 
 workflow_align_flexsurvreg_object <- function(object, old_mm, new_mm, column_map) {
-  parameter_indices <- object$pars_indices
-  if (is.null(parameter_indices)) {
-    parameter_indices <- object$pars_indeces
-  }
+  parameter_indices <- flexsurv_pars_indices(object)
   if (is.null(parameter_indices)) {
     stop(
       "burgle.workflow() could not identify the distribution-parameter indices for the burgled flexsurv workflow."

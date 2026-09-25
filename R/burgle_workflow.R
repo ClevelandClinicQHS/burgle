@@ -618,10 +618,10 @@ workflow_ns_call <- function(x, object) {
 }
 
 workflow_splines2_call <- function(x, object) {
-  args <- object
-  args$.ns <- NULL
-  args$.fn <- NULL
-  args$nm <- NULL
+  fn <- workflow_namespace_function("splines2", object$.fn)
+  arg_names <- setdiff(names(formals(fn)), "...")
+  arg_names <- intersect(arg_names, names(object))
+  args <- object[arg_names]
   args$x <- x
 
   for (nm in names(args)) {
@@ -821,7 +821,11 @@ workflow_design_groups <- function(mm, terms) {
 }
 
 workflow_check_runtime_dependencies <- function(object) {
-  required_pkgs <- unique(object$workflow_required_pkgs)
+  required_pkgs <- object$workflow_required_pkgs
+  if (is.null(required_pkgs)) {
+    required_pkgs <- character()
+  }
+  required_pkgs <- unique(required_pkgs)
   missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
 
   if (length(missing_pkgs) > 0L) {
@@ -944,18 +948,12 @@ workflow_align_multinom_object <- function(object, old_mm, new_mm, column_map) {
   cov <- object$cov
   perm <- integer(length(coef))
   block_names <- colnames(new_mm)[column_map$new_order]
-  old_names <- names(coef)
   new_names <- character(length(coef))
 
   for (i in seq_len(rnl)) {
     block <- ((i - 1L) * p + 1L):(i * p)
     perm[block] <- block[column_map$old_order]
-    prefix <- old_names[block[1]]
-    if (endsWith(prefix, colnames(old_mm)[1])) {
-      prefix <- substr(prefix, 1L, nchar(prefix) - nchar(colnames(old_mm)[1]))
-    } else {
-      prefix <- ""
-    }
+    prefix <- paste0(object$rlev[[i + 1L]], ":")
     new_names[block] <- paste0(prefix, block_names)
   }
 

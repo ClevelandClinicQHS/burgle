@@ -872,17 +872,17 @@ workflow_validate_baked_predictors <- function(baked_predictors) {
       "`."
     )
   }
+}
 
-  workflow_get_xlevels <- function(terms, model_frame) {
-    vars <- attr(terms, "dataClasses")
-    vars <- vars[names(vars) != "(response)"]
-    factor_vars <- names(vars)[vars %in% c("factor", "ordered")]
+workflow_get_xlevels <- function(terms, model_frame) {
+  vars <- attr(terms, "dataClasses")
+  vars <- vars[names(vars) != "(response)"]
+  factor_vars <- names(vars)[vars %in% c("factor", "ordered")]
 
-    setNames(
-      lapply(factor_vars, function(x) levels(model_frame[[x]])),
-      factor_vars
-    )
-  }
+  setNames(
+    lapply(factor_vars, function(x) levels(model_frame[[x]])),
+    factor_vars
+  )
 }
 
 workflow_training_rows <- function(raw_training, baked_predictors) {

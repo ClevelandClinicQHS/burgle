@@ -125,6 +125,8 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
   original_info <- summary(recipe_untrained, original = TRUE)
   predictor_names <- unique(original_info$variable[original_info$role == "predictor"])
   state <- workflow_initial_state(raw_training, predictor_names)
+  workflow_validate_baked_predictors(baked_predictors)
+  raw_training_used <- workflow_training_rows(raw_training, baked_predictors)
 
   required_pkgs <- character()
 
@@ -178,9 +180,9 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
     intercept = workflow_terms_intercept(burgled$terms)
   )
 
-  compiled_terms <- stats::terms(compiled_formula, data = raw_training)
+  compiled_terms <- stats::terms(compiled_formula, data = raw_training_used)
 
-  mf <- stats::model.frame(compiled_formula, data = raw_training, na.action = stats::na.pass)
+  mf <- stats::model.frame(compiled_formula, data = raw_training_used, na.action = stats::na.omit)
   xlevels <- stats::.getXlevels(compiled_terms, mf)
 
   contrasts <- burgled$contrasts
@@ -198,7 +200,7 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
   new_mm <- workflow_model_matrix(
     burgled,
     compiled_terms,
-    data = raw_training,
+    data = raw_training_used,
     xlev = xlevels,
     contrasts.arg = contrasts
   )
@@ -816,7 +818,7 @@ workflow_design_groups <- function(mm, terms) {
       } else if (idx > length(labels)) {
         as.character(idx)
       } else {
-        labels[[idx]]
+        unname(labels[idx])
       }
     },
     character(1)
@@ -829,6 +831,38 @@ workflow_check_runtime_dependencies <- function(object) {
   required_pkgs <- object$workflow_required_pkgs
   if (is.null(required_pkgs)) {
     required_pkgs <- character()
+  }
+
+  workflow_validate_baked_predictors <- function(baked_predictors) {
+    bad_columns <- names(baked_predictors)[vapply(
+      baked_predictors,
+      function(x) is.matrix(x) || is.array(x) || is.list(x),
+      logical(1)
+    )]
+
+    if (length(bad_columns) > 0L) {
+      stop(
+        "burgle.workflow() does not support workflows whose baked predictors contain matrix or list columns, including sparse or multi-column recipe outputs such as `",
+        bad_columns[[1]],
+        "`."
+      )
+    }
+  }
+
+  workflow_training_rows <- function(raw_training, baked_predictors) {
+    training_rows <- suppressWarnings(as.integer(rownames(baked_predictors)))
+
+    if (length(training_rows) == nrow(baked_predictors) && !anyNA(training_rows)) {
+      return(raw_training[training_rows, , drop = FALSE])
+    }
+
+    if (nrow(raw_training) == nrow(baked_predictors)) {
+      return(raw_training)
+    }
+
+    stop(
+      "burgle.workflow() could not determine which training rows reached the fitted engine after recipe preprocessing."
+    )
   }
   required_pkgs <- unique(required_pkgs)
   missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]

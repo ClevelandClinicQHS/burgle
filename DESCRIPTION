@@ -17,11 +17,15 @@ Imports:
     survival (>= 3.5-3)
 Suggests:
     flexsurv (>= 2.2.2),
+    parsnip,
     nnet (>= 7.3-18),
+    recipes,
+    splines2,
     testthat (>= 3.0.0),
     prodlim,
     randomForestSRC,
-    rms
+    rms,
+    workflows
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

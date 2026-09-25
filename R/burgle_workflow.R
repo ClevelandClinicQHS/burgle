@@ -13,25 +13,20 @@ burgle.workflow <- function(object, ...) {
 
   workflow_require_namespace("workflows")
   workflow_require_namespace("recipes")
-  workflow_require_namespace("parsnip")
 
-  extract_fit_parsnip <- workflow_namespace_function("workflows", "extract_fit_parsnip")
   extract_fit_engine <- workflow_namespace_function("workflows", "extract_fit_engine")
   extract_mold <- workflow_namespace_function("workflows", "extract_mold")
   extract_preprocessor <- workflow_namespace_function("workflows", "extract_preprocessor")
   extract_recipe <- workflow_namespace_function("workflows", "extract_recipe")
-  extract_spec_parsnip <- workflow_namespace_function("workflows", "extract_spec_parsnip")
 
   engine <- extract_fit_engine(object)
-  spec <- extract_spec_parsnip(object)
-
-  workflow_validate_model_spec(spec, engine)
+  burgled <- workflow_burgle_engine(engine)
 
   preprocessor <- extract_preprocessor(object)
 
   if (inherits(preprocessor, "formula")) {
     stop(
-      "burgle.workflow() does not support formula-preprocessor workflows because hardhat expands them before glm fitting and the raw training data needed to reconstruct factor-aware terms is not retained."
+      "burgle.workflow() does not support formula-preprocessor workflows because hardhat expands predictors before engine fitting and the raw terms needed for faithful reconstruction are not retained."
     )
   }
 
@@ -49,15 +44,10 @@ burgle.workflow <- function(object, ...) {
     recipe_trained = recipe_trained,
     recipe_untrained = recipe_untrained,
     baked_predictors = mold$predictors,
-    engine = engine
+    burgled = burgled
   )
 
-  out <- burgle.glm(engine)
-  out$coef <- compiled$coef
-  out$cov <- compiled$cov
-  out$terms <- compiled$terms
-  out$xlevels <- compiled$xlevels
-  out$contrasts <- compiled$contrasts
+  out <- compiled$object
   out$workflow_required_pkgs <- compiled$required_pkgs
 
   class(out) <- c("burgle_workflow", class(out))
@@ -69,7 +59,8 @@ burgle.workflow <- function(object, ...) {
 #' @export
 predict.burgle_workflow <- function(object, newdata, ...) {
   workflow_check_runtime_dependencies(object)
-  predict.burgle_glm(object = object, newdata = newdata, ...)
+  class(object) <- setdiff(class(object), "burgle_workflow")
+  stats::predict(object, newdata = newdata, ...)
 }
 
 workflow_require_namespace <- function(pkg) {
@@ -82,34 +73,48 @@ workflow_namespace_function <- function(pkg, fun) {
   getExportedValue(pkg, fun)
 }
 
-workflow_validate_model_spec <- function(spec, engine) {
-  if (!inherits(spec, "logistic_reg")) {
-    stop("burgle.workflow() currently supports only parsnip logistic_reg() workflows.")
+workflow_has_active_steps <- function(recipe_trained) {
+  if (length(recipe_trained$steps) == 0L) {
+    return(FALSE)
   }
 
-  if (!identical(spec$engine, "glm")) {
-    stop("burgle.workflow() currently supports only logistic_reg() workflows with the `glm` engine.")
-  }
-
-  if (!identical(spec$mode, "classification")) {
-    stop("burgle.workflow() currently supports only classification workflows.")
-  }
-
-  if (!inherits(engine, "glm")) {
-    stop("burgle.workflow() expected a fitted `glm` engine object.")
-  }
-
-  if (!identical(engine$family$family, "binomial")) {
-    stop("burgle.workflow() currently supports only fitted binomial glm workflows.")
-  }
-
-  offsets <- attr(stats::terms(engine), "offset")
-  if (!is.null(offsets) && length(offsets) > 0L) {
-    stop("Workflow models with formula offsets are not supported.")
-  }
+  any(!vapply(recipe_trained$steps, function(x) isTRUE(x$skip), logical(1)))
 }
 
-workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_predictors, engine) {
+workflow_supports_compiled_terms <- function(object) {
+  inherits(object, c(
+    "burgle_lm",
+    "burgle_glm",
+    "burgle_multinom",
+    "burgle_coxph",
+    "burgle_cph",
+    "burgle_flexsurvreg"
+  ))
+}
+
+workflow_terms_intercept <- function(terms) {
+  isTRUE(attr(terms, "intercept") == 1L)
+}
+
+workflow_burgle_engine <- function(engine) {
+  out <- tryCatch(
+    burgle(engine),
+    error = function(e) e
+  )
+
+  if (inherits(out, "error")) {
+    stop(
+      "burgle.workflow() could not burgle the extracted workflow engine of class `",
+      paste(class(engine), collapse = "/"),
+      "`: ",
+      conditionMessage(out)
+    )
+  }
+
+  out
+}
+
+workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_predictors, burgled) {
   raw_training <- recipe_untrained$template
   if (is.null(raw_training) || !is.data.frame(raw_training) || nrow(raw_training) == 0L) {
     stop(
@@ -142,6 +147,21 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
     required_pkgs <- unique(c(required_pkgs, step_result$required_pkgs))
   }
 
+  if (!workflow_supports_compiled_terms(burgled)) {
+    if (workflow_has_active_steps(recipe_trained)) {
+      stop(
+        "burgle.workflow() does not support recipe preprocessing for burgled objects of class `",
+        class(burgled)[1],
+        "` because their prediction path does not use a replaceable formula/terms design matrix."
+      )
+    }
+
+    return(list(
+      object = burgled,
+      required_pkgs = unique(required_pkgs)
+    ))
+  }
+
   baked_predictor_names <- colnames(baked_predictors)
   missing_predictors <- setdiff(baked_predictor_names, names(state))
   if (length(missing_predictors) > 0L) {
@@ -155,7 +175,7 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
 
   compiled_formula <- workflow_terms_formula(
     state = state,
-    intercept = isTRUE(attr(stats::delete.response(engine$terms), "intercept") == 1L)
+    intercept = workflow_terms_intercept(burgled$terms)
   )
 
   compiled_terms <- stats::terms(compiled_formula, data = raw_training)
@@ -164,56 +184,46 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
   mf <- stats::model.frame(compiled_formula, data = raw_training, na.action = stats::na.pass)
   xlevels <- stats::.getXlevels(compiled_terms, mf)
 
-  contrasts <- engine$contrasts
+  contrasts <- burgled$contrasts
   if (length(contrasts) > 0L) {
     contrasts <- contrasts[intersect(names(contrasts), names(xlevels))]
   }
 
-  old_terms <- stats::delete.response(engine$terms)
-  old_mm <- stats::model.matrix(
-    old_terms,
+  old_mm <- workflow_model_matrix(
+    burgled,
+    burgled$terms,
     data = baked_predictors,
-    xlev = engine$xlevels,
-    contrasts.arg = engine$contrasts
+    xlev = burgled$xlevels,
+    contrasts.arg = burgled$contrasts
   )
-  new_mm <- stats::model.matrix(
+  new_mm <- workflow_model_matrix(
+    burgled,
     compiled_terms,
     data = raw_training,
     xlev = xlevels,
     contrasts.arg = contrasts
   )
 
-  column_map <- workflow_validate_design_matrices(old_mm, new_mm)
+  column_map <- workflow_validate_design_matrices(
+    old_mm,
+    new_mm,
+    old_terms = burgled$terms,
+    new_terms = compiled_terms
+  )
 
-  coef <- stats::coef(engine)
-  if (anyNA(coef) || !all(colnames(old_mm) %in% names(coef))) {
-    stop(
-      "burgle.workflow() does not support rank-deficient or aliased workflow fits because the fitted glm coefficients are not fully aligned with the baked design matrix columns."
-    )
-  }
-  coef <- coef[colnames(old_mm)]
+  burgled <- workflow_align_burgled_object(
+    burgled = burgled,
+    old_mm = old_mm,
+    new_mm = new_mm,
+    column_map = column_map
+  )
 
-  cov <- stats::vcov(engine)
-  if (!all(colnames(old_mm) %in% rownames(cov)) || !all(colnames(old_mm) %in% colnames(cov))) {
-    stop(
-      "burgle.workflow() does not support rank-deficient or aliased workflow fits because the fitted glm covariance matrix is not fully aligned with the baked design matrix columns."
-    )
-  }
-  cov <- cov[colnames(old_mm), colnames(old_mm), drop = FALSE]
-
-  coef_new <- unname(coef[column_map$old_order])
-  names(coef_new) <- colnames(new_mm)[column_map$new_order]
-
-  cov_new <- cov[column_map$old_order, column_map$old_order, drop = FALSE]
-  rownames(cov_new) <- colnames(new_mm)[column_map$new_order]
-  colnames(cov_new) <- colnames(new_mm)[column_map$new_order]
+  burgled$terms <- compiled_terms
+  burgled$xlevels <- xlevels
+  burgled$contrasts <- contrasts
 
   list(
-    coef = coef_new,
-    cov = cov_new,
-    terms = compiled_terms,
-    xlevels = xlevels,
-    contrasts = contrasts,
+    object = burgled,
     required_pkgs = unique(required_pkgs)
   )
 }
@@ -712,19 +722,20 @@ workflow_term_expression <- function(expr, scalar) {
   call("I", expr)
 }
 
-workflow_validate_design_matrices <- function(old_mm, new_mm, tolerance = 1e-8) {
+workflow_validate_design_matrices <- function(old_mm, new_mm, old_terms = NULL, new_terms = NULL, tolerance = 1e-8) {
   if (!identical(nrow(old_mm), nrow(new_mm))) {
     stop("Compiled workflow validation failed: old and new design matrices have different row counts.")
   }
 
-  old_assign <- attr(old_mm, "assign")
-  new_assign <- attr(new_mm, "assign")
-
-  old_groups <- split(seq_len(ncol(old_mm)), old_assign)
-  new_groups <- split(seq_len(ncol(new_mm)), new_assign)
+  old_groups <- workflow_design_groups(old_mm, old_terms)
+  new_groups <- workflow_design_groups(new_mm, new_terms)
 
   if (!identical(names(old_groups), names(new_groups))) {
-    stop("Compiled workflow validation failed: old and new term groups do not align.")
+    if (length(old_groups) != length(new_groups)) {
+      stop("Compiled workflow validation failed: old and new term groups do not align.")
+    }
+    names(old_groups) <- as.character(seq_along(old_groups))
+    names(new_groups) <- as.character(seq_along(new_groups))
   }
 
   old_order <- integer()
@@ -784,6 +795,31 @@ workflow_match_columns <- function(old, new, tolerance = 1e-8) {
   matched
 }
 
+workflow_design_groups <- function(mm, terms) {
+  assign <- attr(mm, "assign")
+  groups <- split(seq_len(ncol(mm)), assign)
+
+  if (is.null(terms)) {
+    return(groups)
+  }
+
+  labels <- attr(terms, "term.labels")
+  names(groups) <- vapply(
+    names(groups),
+    function(x) {
+      idx <- as.integer(x)
+      if (is.na(idx) || idx == 0L) {
+        "(Intercept)"
+      } else {
+        labels[[idx]]
+      }
+    },
+    character(1)
+  )
+
+  groups
+}
+
 workflow_check_runtime_dependencies <- function(object) {
   required_pkgs <- unique(object$workflow_required_pkgs)
   missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
@@ -795,4 +831,128 @@ workflow_check_runtime_dependencies <- function(object) {
       " to evaluate compiled recipe terms during prediction."
     )
   }
+}
+
+workflow_model_matrix <- function(object, terms, data, xlev, contrasts.arg) {
+  mm <- stats::model.matrix(
+    terms,
+    data = data,
+    xlev = xlev,
+    contrasts.arg = contrasts.arg
+  )
+
+  if (inherits(object, c("burgle_coxph", "burgle_cph", "burgle_flexsurvreg"))) {
+    if (ncol(mm) <= 1L) {
+      return(matrix(0, nrow = nrow(data), ncol = 0L))
+    }
+    mm <- mm[, -1, drop = FALSE]
+  }
+
+  mm
+}
+
+workflow_align_burgled_object <- function(burgled, old_mm, new_mm, column_map) {
+  if (inherits(burgled, "burgle_multinom")) {
+    return(workflow_align_multinom_object(burgled, old_mm, new_mm, column_map))
+  }
+
+  if (inherits(burgled, "burgle_flexsurvreg")) {
+    return(workflow_align_flexsurvreg_object(burgled, old_mm, new_mm, column_map))
+  }
+
+  return(workflow_align_simple_object(burgled, old_mm, new_mm, column_map))
+}
+
+workflow_align_simple_object <- function(object, old_mm, new_mm, column_map) {
+  coef <- object$coef
+  if (anyNA(coef) || !all(colnames(old_mm) %in% names(coef))) {
+    stop(
+      "burgle.workflow() does not support rank-deficient or aliased workflow fits because the fitted coefficients are not fully aligned with the baked design matrix columns."
+    )
+  }
+  coef <- coef[colnames(old_mm)]
+
+  cov <- object$cov
+  if (!all(colnames(old_mm) %in% rownames(cov)) || !all(colnames(old_mm) %in% colnames(cov))) {
+    stop(
+      "burgle.workflow() does not support rank-deficient or aliased workflow fits because the fitted covariance matrix is not fully aligned with the baked design matrix columns."
+    )
+  }
+  cov <- cov[colnames(old_mm), colnames(old_mm), drop = FALSE]
+
+  coef_new <- unname(coef[column_map$old_order])
+  names(coef_new) <- colnames(new_mm)[column_map$new_order]
+
+  cov_new <- cov[column_map$old_order, column_map$old_order, drop = FALSE]
+  rownames(cov_new) <- colnames(new_mm)[column_map$new_order]
+  colnames(cov_new) <- colnames(new_mm)[column_map$new_order]
+
+  object$coef <- coef_new
+  object$cov <- cov_new
+  object
+}
+
+workflow_align_flexsurvreg_object <- function(object, old_mm, new_mm, column_map) {
+  covariate_indices <- setdiff(seq_along(object$coef), object$pars_indeces)
+
+  if (length(covariate_indices) != ncol(old_mm)) {
+    stop(
+      "burgle.workflow() could not align flexsurv workflow coefficients with the baked design matrix columns."
+    )
+  }
+
+  coef <- object$coef
+  cov <- object$cov
+
+  covariate_names <- names(coef)[covariate_indices]
+  if (anyNA(coef[covariate_indices]) || !identical(unname(covariate_names), unname(colnames(old_mm)))) {
+    stop(
+      "burgle.workflow() does not support rank-deficient or nonstandard flexsurv workflow coefficient layouts."
+    )
+  }
+
+  coef[covariate_indices] <- unname(coef[covariate_indices][column_map$old_order])
+  names(coef)[covariate_indices] <- colnames(new_mm)[column_map$new_order]
+
+  perm <- seq_along(coef)
+  perm[covariate_indices] <- covariate_indices[column_map$old_order]
+  cov <- cov[perm, perm, drop = FALSE]
+  rownames(cov) <- names(coef)
+  colnames(cov) <- names(coef)
+
+  object$coef <- coef
+  object$cov <- cov
+  object
+}
+
+workflow_align_multinom_object <- function(object, old_mm, new_mm, column_map) {
+  rnl <- length(object$rlev) - 1L
+  p <- ncol(old_mm)
+
+  if (length(object$coef) != rnl * p) {
+    stop(
+      "burgle.workflow() could not align multinom workflow coefficients with the baked design matrix columns."
+    )
+  }
+
+  coef <- object$coef
+  cov <- object$cov
+  perm <- integer(length(coef))
+  new_names <- names(coef)
+
+  for (i in seq_len(rnl)) {
+    block <- ((i - 1L) * p + 1L):(i * p)
+    perm[block] <- block[column_map$old_order]
+    new_names[block] <- names(coef)[perm[block]]
+  }
+
+  coef <- unname(coef[perm])
+  names(coef) <- new_names
+  cov <- cov[perm, perm, drop = FALSE]
+  rownames(cov) <- new_names
+  colnames(cov) <- new_names
+
+  object$coef <- coef
+  object$cov <- cov
+  object
 }

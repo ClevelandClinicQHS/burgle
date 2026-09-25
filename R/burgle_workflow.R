@@ -832,38 +832,6 @@ workflow_check_runtime_dependencies <- function(object) {
   if (is.null(required_pkgs)) {
     required_pkgs <- character()
   }
-
-  workflow_validate_baked_predictors <- function(baked_predictors) {
-    bad_columns <- names(baked_predictors)[vapply(
-      baked_predictors,
-      function(x) is.matrix(x) || is.array(x) || is.list(x),
-      logical(1)
-    )]
-
-    if (length(bad_columns) > 0L) {
-      stop(
-        "burgle.workflow() does not support workflows whose baked predictors contain matrix or list columns, including sparse or multi-column recipe outputs such as `",
-        bad_columns[[1]],
-        "`."
-      )
-    }
-  }
-
-  workflow_training_rows <- function(raw_training, baked_predictors) {
-    training_rows <- suppressWarnings(as.integer(rownames(baked_predictors)))
-
-    if (length(training_rows) == nrow(baked_predictors) && !anyNA(training_rows)) {
-      return(raw_training[training_rows, , drop = FALSE])
-    }
-
-    if (nrow(raw_training) == nrow(baked_predictors)) {
-      return(raw_training)
-    }
-
-    stop(
-      "burgle.workflow() could not determine which training rows reached the fitted engine after recipe preprocessing."
-    )
-  }
   required_pkgs <- unique(required_pkgs)
   missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
 
@@ -874,6 +842,38 @@ workflow_check_runtime_dependencies <- function(object) {
       " to evaluate compiled recipe terms during prediction."
     )
   }
+}
+
+workflow_validate_baked_predictors <- function(baked_predictors) {
+  bad_columns <- names(baked_predictors)[vapply(
+    baked_predictors,
+    function(x) is.matrix(x) || is.array(x) || is.list(x),
+    logical(1)
+  )]
+
+  if (length(bad_columns) > 0L) {
+    stop(
+      "burgle.workflow() does not support workflows whose baked predictors contain matrix or list columns, including sparse or multi-column recipe outputs such as `",
+      bad_columns[[1]],
+      "`."
+    )
+  }
+}
+
+workflow_training_rows <- function(raw_training, baked_predictors) {
+  training_rows <- suppressWarnings(as.integer(rownames(baked_predictors)))
+
+  if (length(training_rows) == nrow(baked_predictors) && !anyNA(training_rows)) {
+    return(raw_training[training_rows, , drop = FALSE])
+  }
+
+  if (nrow(raw_training) == nrow(baked_predictors)) {
+    return(raw_training)
+  }
+
+  stop(
+    "burgle.workflow() could not determine which training rows reached the fitted engine after recipe preprocessing."
+  )
 }
 
 workflow_model_matrix <- function(object, terms, data, xlev, contrasts.arg) {

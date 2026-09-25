@@ -1,6 +1,6 @@
 workflow_baked_predictors <- function(wf, new_data) {
   recipes::bake(
-    workflows::extract_recipe(wf),
+    workflows::extract_recipe(wf, estimated = TRUE),
     new_data = new_data
   )
 }

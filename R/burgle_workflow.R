@@ -871,9 +871,16 @@ workflow_validate_baked_predictors <- function(baked_predictors) {
 workflow_training_rows <- function(raw_training, baked_predictors) {
   raw_rows <- rownames(raw_training)
   baked_rows <- rownames(baked_predictors)
-  training_rows <- suppressWarnings(as.integer(rownames(baked_predictors)))
+  default_raw_rows <- identical(raw_rows, as.character(seq_len(nrow(raw_training))))
+  training_rows <- suppressWarnings(as.integer(baked_rows))
 
-  if (length(training_rows) == nrow(baked_predictors) && !anyNA(training_rows)) {
+  if (!is.null(raw_rows) && !is.null(baked_rows) && all(baked_rows %in% raw_rows)) {
+    return(raw_training[match(baked_rows, raw_rows), , drop = FALSE])
+  }
+
+  if (default_raw_rows &&
+      length(training_rows) == nrow(baked_predictors) &&
+      !anyNA(training_rows)) {
     return(raw_training[training_rows, , drop = FALSE])
   }
 

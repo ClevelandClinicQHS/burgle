@@ -1,28 +1,24 @@
-test_that("burgle.workflow matches fitted formula workflow predictions", {
+test_that("burgle.workflow rejects formula preprocessors", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("workflows")
 
   dat <- iris
   dat$y <- factor(ifelse(dat$Species == "setosa", "yes", "no"))
 
-  wf <- workflows::workflow() |>
-    workflows::add_formula(y ~ Sepal.Length + Species) |>
-    workflows::add_model(
-      parsnip::logistic_reg() |>
-        parsnip::set_engine("glm")
-    ) |>
-    workflows::fit(data = dat)
-
-  bfit <- burgle(wf)
-  expected <- stats::predict(
-    workflows::extract_fit_engine(wf),
-    newdata = head(dat, 8),
-    type = "link"
+  wf <- suppressWarnings(
+    workflows::workflow() |>
+      workflows::add_formula(y ~ Sepal.Length + Species) |>
+      workflows::add_model(
+        parsnip::logistic_reg() |>
+          parsnip::set_engine("glm")
+      ) |>
+      workflows::fit(data = dat)
   )
-  actual <- predict(bfit, newdata = head(dat, 8), type = "lp")
 
-  expect_s3_class(bfit, "burgle_workflow")
-  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-8)
+  expect_error(
+    burgle(wf),
+    "does not support formula-preprocessor workflows"
+  )
 })
 
 test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
@@ -71,13 +67,15 @@ test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
     recipes::step_ratio(x10, denom = x11, keep_original_cols = TRUE) |>
     recipes::step_interact(terms = ~ x10_o_x11:x12)
 
-  wf <- workflows::workflow() |>
-    workflows::add_recipe(rec) |>
-    workflows::add_model(
-      parsnip::logistic_reg() |>
-        parsnip::set_engine("glm")
-    ) |>
-    workflows::fit(data = dat)
+  wf <- suppressWarnings(
+    workflows::workflow() |>
+      workflows::add_recipe(rec) |>
+      workflows::add_model(
+        parsnip::logistic_reg() |>
+          parsnip::set_engine("glm")
+      ) |>
+      workflows::fit(data = dat)
+  )
 
   bfit <- burgle(wf)
   new_dat <- dat[1:10, ]
@@ -136,16 +134,18 @@ test_that("burgle.workflow rejects unsafe factor interactions", {
     x = stats::runif(40)
   )
 
-  wf <- workflows::workflow() |>
-    workflows::add_recipe(
-      recipes::recipe(y ~ grp + x, data = dat) |>
-        recipes::step_interact(terms = ~ grp:x)
-    ) |>
-    workflows::add_model(
-      parsnip::logistic_reg() |>
-        parsnip::set_engine("glm")
-    ) |>
-    workflows::fit(data = dat)
+  wf <- suppressWarnings(
+    workflows::workflow() |>
+      workflows::add_recipe(
+        recipes::recipe(y ~ grp + x, data = dat) |>
+          recipes::step_interact(terms = ~ grp:x)
+      ) |>
+      workflows::add_model(
+        parsnip::logistic_reg() |>
+          parsnip::set_engine("glm")
+      ) |>
+      workflows::fit(data = dat)
+  )
 
   expect_error(
     burgle(wf),

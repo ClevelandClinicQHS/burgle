@@ -22,7 +22,6 @@ burgle.workflow <- function(object, ...) {
   extract_recipe <- workflow_namespace_function("workflows", "extract_recipe")
   extract_spec_parsnip <- workflow_namespace_function("workflows", "extract_spec_parsnip")
 
-  extract_fit_parsnip(object)
   engine <- extract_fit_engine(object)
   spec <- extract_spec_parsnip(object)
 
@@ -31,10 +30,9 @@ burgle.workflow <- function(object, ...) {
   preprocessor <- extract_preprocessor(object)
 
   if (inherits(preprocessor, "formula")) {
-    out <- burgle.glm(engine)
-    out$workflow_required_pkgs <- character()
-    class(out) <- c("burgle_workflow", class(out))
-    return(out)
+    stop(
+      "burgle.workflow() does not support formula-preprocessor workflows because hardhat expands them before glm fitting and the raw training data needed to reconstruct factor-aware terms is not retained."
+    )
   }
 
   if (!inherits(preprocessor, "recipe")) {
@@ -112,8 +110,6 @@ workflow_validate_model_spec <- function(spec, engine) {
 }
 
 workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_predictors, engine) {
-  recipe_summary <- getExportedValue("recipes", "summary")
-
   raw_training <- recipe_untrained$template
   if (is.null(raw_training) || !is.data.frame(raw_training) || nrow(raw_training) == 0L) {
     stop(
@@ -121,7 +117,7 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
     )
   }
 
-  original_info <- recipe_summary(recipe_untrained, original = TRUE)
+  original_info <- summary(recipe_untrained, original = TRUE)
   predictor_names <- unique(original_info$variable[original_info$role == "predictor"])
   state <- workflow_initial_state(raw_training, predictor_names)
 
@@ -145,6 +141,17 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
     state <- step_result$state
     required_pkgs <- unique(c(required_pkgs, step_result$required_pkgs))
   }
+
+  baked_predictor_names <- colnames(baked_predictors)
+  missing_predictors <- setdiff(baked_predictor_names, names(state))
+  if (length(missing_predictors) > 0L) {
+    stop(
+      "Compiled workflow validation failed: compiled recipe state is missing baked predictor column(s) ",
+      paste(sprintf("`%s`", missing_predictors), collapse = ", "),
+      "."
+    )
+  }
+  state <- state[baked_predictor_names]
 
   compiled_formula <- workflow_terms_formula(
     state = state,
@@ -551,7 +558,7 @@ workflow_stop_step <- function(step_class, reason) {
 workflow_poly_call <- function(x, object) {
   args <- list(
     x = x,
-    degree = attr(object, "degree")
+    degree = max(attr(object, "degree"))
   )
 
   coefs <- attr(object, "coefs")
@@ -658,39 +665,7 @@ workflow_namespace_call <- function(pkg, fun, args) {
 }
 
 workflow_constant_call <- function(x) {
-  if (is.null(x)) {
-    return(quote(NULL))
-  }
-
-  if (is.atomic(x) && is.null(dim(x))) {
-    base <- if (length(x) == 1L) {
-      x
-    } else {
-      as.call(c(list(as.name("c")), as.list(unname(x))))
-    }
-
-    if (!is.null(names(x))) {
-      base <- as.call(
-        list(
-          as.name("structure"),
-          base,
-          names = as.call(c(list(as.name("c")), as.list(names(x))))
-        )
-      )
-    }
-
-    return(base)
-  }
-
-  if (is.list(x)) {
-    elems <- lapply(x, workflow_constant_call)
-    if (!is.null(names(x))) {
-      elems <- stats::setNames(elems, names(x))
-    }
-    return(as.call(c(list(as.name("list")), elems)))
-  }
-
-  stop("Unsupported constant type in workflow compiler: ", paste(class(x), collapse = "/"))
+  x
 }
 
 workflow_terms_formula <- function(state, intercept) {

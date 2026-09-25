@@ -40,6 +40,12 @@ burgle.workflow <- function(object, ...) {
   recipe_untrained <- extract_recipe(object, estimated = FALSE)
   mold <- extract_mold(object)
 
+  if (!workflow_has_active_steps(recipe_trained)) {
+    burgled$workflow_required_pkgs <- character()
+    class(burgled) <- c("burgle_workflow", class(burgled))
+    return(burgled)
+  }
+
   compiled <- workflow_compile_recipe(
     recipe_trained = recipe_trained,
     recipe_untrained = recipe_untrained,

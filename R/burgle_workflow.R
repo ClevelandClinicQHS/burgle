@@ -875,6 +875,11 @@ workflow_training_rows <- function(raw_training, baked_predictors) {
   training_rows <- suppressWarnings(as.integer(baked_rows))
 
   if (!is.null(raw_rows) && !is.null(baked_rows) && all(baked_rows %in% raw_rows)) {
+    if (anyDuplicated(raw_rows) || anyDuplicated(baked_rows)) {
+      stop(
+        "burgle.workflow() could not determine a one-to-one mapping between raw training rows and the rows that reached the fitted engine after recipe preprocessing."
+      )
+    }
     return(raw_training[match(baked_rows, raw_rows), , drop = FALSE])
   }
 

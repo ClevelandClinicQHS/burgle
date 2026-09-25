@@ -282,6 +282,50 @@ test_that("burgle.workflow supports linear_reg workflows with compiled recipe te
   expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 
+test_that("burgle.workflow supports non-binomial glm workflows with compiled recipe terms", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  set.seed(212)
+  dat <- data.frame(
+    y = stats::rpois(90, lambda = 4),
+    x1 = stats::rnorm(90),
+    x2 = stats::runif(90, 0.2, 2),
+    grp = factor(sample(c("a", "b"), 90, replace = TRUE))
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2 + grp, data = dat) |>
+        recipes::step_bs(x2, deg_free = 4)
+    ) |>
+    workflows::add_model(
+      parsnip::poisson_reg() |>
+        parsnip::set_engine("glm")
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    y = 0,
+    x1 = seq(-1, 1, length.out = 6),
+    x2 = seq(0.3, 1.8, length.out = 6),
+    grp = factor(c("a", "b", "a", "b", "a", "b"), levels = levels(dat$grp))
+  )
+
+  baked <- workflow_baked_predictors(wf, new_dat)
+  expected <- stats::predict(
+    workflows::extract_fit_engine(wf),
+    newdata = baked,
+    type = "link"
+  )
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
+
+  expect_s3_class(bfit, "burgle_glm")
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
+})
+
 test_that("burgle.workflow supports multinom workflows with compiled recipe terms", {
   skip_if_not_installed("nnet")
   skip_if_not_installed("parsnip")

@@ -897,7 +897,7 @@ workflow_training_rows <- function(raw_training, baked_predictors) {
 
   if (!is.null(raw_rows) && !is.null(baked_rows) &&
       identical(baked_rows, raw_rows[seq_len(length(baked_rows))])) {
-    return(raw_training)
+    return(raw_training[seq_len(nrow(baked_predictors)), , drop = FALSE])
   }
 
   stop(
@@ -915,8 +915,9 @@ workflow_model_matrix <- function(object, terms, data, xlev, contrasts.arg) {
 
   if (inherits(object, c("burgle_coxph", "burgle_cph", "burgle_flexsurvreg")) &&
       workflow_terms_intercept(terms)) {
-    mm <- mm[, setdiff(seq_len(ncol(mm)), 1L), drop = FALSE]
-    attr(mm, "assign") <- attr(mm, "assign")[-1]
+    keep <- attr(mm, "assign") != 0L
+    mm <- mm[, keep, drop = FALSE]
+    attr(mm, "assign") <- attr(mm, "assign")[keep]
   }
 
   mm

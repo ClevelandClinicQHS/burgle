@@ -63,9 +63,9 @@ predict.burgle_workflow <- function(object, newdata, ...) {
   stats::predict(object, newdata = newdata, ...)
 }
 
-workflow_require_namespace <- function(pkg) {
+workflow_require_namespace <- function(pkg, caller = "burgle.workflow()") {
   if (!requireNamespace(pkg, quietly = TRUE)) {
-    stop("Package `", pkg, "` must be installed to use burgle.workflow().")
+    stop("Package `", pkg, "` must be installed to use ", caller, ".")
   }
 }
 
@@ -179,7 +179,6 @@ workflow_compile_recipe <- function(recipe_trained, recipe_untrained, baked_pred
   )
 
   compiled_terms <- stats::terms(compiled_formula, data = raw_training)
-  attr(compiled_terms, ".Environment") <- baseenv()
 
   mf <- stats::model.frame(compiled_formula, data = raw_training, na.action = stats::na.pass)
   xlevels <- stats::.getXlevels(compiled_terms, mf)
@@ -634,7 +633,7 @@ workflow_splines2_call <- function(x, object) {
 }
 
 workflow_matrix_column_call <- function(x, column) {
-  as.call(list(as.name("["), x, quote(expr = ), column))
+  substitute(X[, J], list(X = x, J = column))
 }
 
 workflow_harmonic_call <- function(x, frequency, starting_val, cycle_size, fun) {

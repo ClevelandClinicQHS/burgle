@@ -1,3 +1,10 @@
+workflow_baked_predictors <- function(wf, new_data) {
+  recipes::bake(
+    workflows::extract_recipe(wf),
+    new_data = new_data
+  )
+}
+
 test_that("burgle.workflow rejects formula preprocessors", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("workflows")
@@ -97,10 +104,7 @@ test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
     t1 = seq(5, 95, length.out = 10)
   )
 
-  baked <- recipes::bake(
-    workflows::extract_recipe(wf),
-    new_data = new_dat
-  )
+  baked <- workflow_baked_predictors(wf, new_dat)
   expected <- stats::predict(
     workflows::extract_fit_engine(wf),
     newdata = baked,
@@ -199,10 +203,7 @@ test_that("burgle.workflow compiles harmonic date features", {
     x = seq(-0.5, 0.5, length.out = 5)
   )
 
-  baked <- recipes::bake(
-    workflows::extract_recipe(wf),
-    new_data = new_dat
-  )
+  baked <- workflow_baked_predictors(wf, new_dat)
   expected <- stats::predict(
     workflows::extract_fit_engine(wf),
     newdata = baked,
@@ -211,4 +212,169 @@ test_that("burgle.workflow compiles harmonic date features", {
   actual <- predict(bfit, newdata = new_dat, type = "lp")
 
   expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
+})
+
+test_that("burgle.workflow supports linear_reg workflows with compiled recipe terms", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  set.seed(202)
+  dat <- data.frame(
+    y = stats::rnorm(80),
+    x1 = stats::rnorm(80),
+    x2 = stats::runif(80, 0.2, 2),
+    grp = factor(sample(c("a", "b", "c"), 80, replace = TRUE))
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2 + grp, data = dat) |>
+        recipes::step_ns(x2, deg_free = 4)
+    ) |>
+    workflows::add_model(
+      parsnip::linear_reg() |>
+        parsnip::set_engine("lm")
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    y = 0,
+    x1 = seq(-1, 1, length.out = 6),
+    x2 = seq(0.3, 1.8, length.out = 6),
+    grp = factor(c("a", "b", "c", "a", "b", "c"), levels = levels(dat$grp))
+  )
+
+  baked <- workflow_baked_predictors(wf, new_dat)
+  expected <- stats::predict(workflows::extract_fit_engine(wf), newdata = baked)
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
+
+  expect_s3_class(bfit, "burgle_lm")
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
+})
+
+test_that("burgle.workflow supports multinom workflows with compiled recipe terms", {
+  skip_if_not_installed("nnet")
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  set.seed(303)
+  n <- 120
+  dat <- data.frame(
+    y = factor(sample(c("low", "mid", "high"), n, replace = TRUE)),
+    x1 = stats::rnorm(n),
+    x2 = stats::runif(n, 0.2, 2),
+    grp = factor(sample(c("a", "b"), n, replace = TRUE))
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2 + grp, data = dat) |>
+        recipes::step_bs(x2, deg_free = 4)
+    ) |>
+    workflows::add_model(
+      parsnip::multinom_reg() |>
+        parsnip::set_engine("nnet", trace = FALSE)
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    y = factor("low", levels = levels(dat$y)),
+    x1 = seq(-1, 1, length.out = 5),
+    x2 = seq(0.25, 1.75, length.out = 5),
+    grp = factor(c("a", "b", "a", "b", "a"), levels = levels(dat$grp))
+  )
+
+  baked <- workflow_baked_predictors(wf, new_dat)
+  expected <- stats::predict(
+    workflows::extract_fit_engine(wf),
+    newdata = baked,
+    type = "probs"
+  )
+  actual <- predict(bfit, newdata = new_dat, type = "odds")
+
+  expect_s3_class(bfit, "burgle_multinom")
+  expect_equal(unname(actual), unname(expected), tolerance = 1e-6)
+})
+
+test_that("burgle.workflow supports proportional hazards workflows when censored is available", {
+  skip_if_not_installed("censored")
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("survival")
+  skip_if_not_installed("workflows")
+
+  set.seed(404)
+  n <- 100
+  dat <- data.frame(
+    time = stats::rexp(n, rate = 0.1),
+    status = stats::rbinom(n, 1, 0.7),
+    x1 = stats::rnorm(n),
+    x2 = stats::runif(n, 0.2, 2),
+    grp = factor(sample(c("a", "b"), n, replace = TRUE))
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(survival::Surv(time, status) ~ x1 + x2 + grp, data = dat) |>
+        recipes::step_ns(x2, deg_free = 3)
+    ) |>
+    workflows::add_model(
+      censored::proportional_hazards() |>
+        parsnip::set_engine("survival")
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  new_dat <- data.frame(
+    time = 1,
+    status = 1,
+    x1 = seq(-1, 1, length.out = 5),
+    x2 = seq(0.3, 1.7, length.out = 5),
+    grp = factor(c("a", "b", "a", "b", "a"), levels = levels(dat$grp))
+  )
+
+  baked <- workflow_baked_predictors(wf, new_dat)
+  expected <- stats::predict(
+    workflows::extract_fit_engine(wf),
+    newdata = baked,
+    type = "lp"
+  )
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
+
+  expect_s3_class(bfit, "burgle_coxph")
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
+})
+
+test_that("burgle.workflow rejects transformed recipes for non-terms engines", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("randomForestSRC")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  set.seed(505)
+  dat <- data.frame(
+    y = stats::rnorm(60),
+    x1 = stats::rnorm(60),
+    x2 = stats::runif(60, 0.2, 2)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2, data = dat) |>
+        recipes::step_ns(x2, deg_free = 3)
+    ) |>
+    workflows::add_model(
+      parsnip::rand_forest(mode = "regression", trees = 20) |>
+        parsnip::set_engine("randomForestSRC")
+    ) |>
+    workflows::fit(data = dat)
+
+  expect_error(
+    burgle(wf),
+    "does not support recipe preprocessing for burgled objects of class `burgle_rfsrc`"
+  )
 })

@@ -94,7 +94,7 @@ workflow_warn_recipe_scope <- function() {
       "burgle.workflow() does not retain the full recipe.",
       "Only the supported formula-compatible preprocessing steps are carried over into the burgled object.",
       "Other recipe steps, including common steps like `step_mutate()`, are not carried over; if burgle.workflow() cannot compile them, it falls back to the burgled fitted engine with a warning."
-    ),
+    )
   )
 }
 

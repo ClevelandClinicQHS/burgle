@@ -48,11 +48,17 @@ burgle.workflow <- function(object, ...) {
 
   workflow_warn_recipe_scope()
 
-  compiled <- workflow_compile_recipe(
-    recipe_trained = recipe_trained,
-    recipe_untrained = recipe_untrained,
-    baked_predictors = mold$predictors,
-    burgled = burgled
+  compiled <- tryCatch(
+    workflow_compile_recipe(
+      recipe_trained = recipe_trained,
+      recipe_untrained = recipe_untrained,
+      baked_predictors = mold$predictors,
+      burgled = burgled
+    ),
+    error = function(e) {
+      workflow_warn_recipe_fallback(conditionMessage(e))
+      workflow_recipe_fallback_object(burgled, conditionMessage(e))
+    }
   )
 
   out <- compiled$object
@@ -67,6 +73,7 @@ burgle.workflow <- function(object, ...) {
 #' @export
 predict.burgle_workflow <- function(object, newdata, ...) {
   workflow_check_runtime_dependencies(object)
+  workflow_warn_prediction_fallback(object)
   class(object) <- setdiff(class(object), "burgle_workflow")
   stats::predict(object, newdata = newdata, ...)
 }
@@ -82,11 +89,47 @@ workflow_namespace_function <- function(pkg, fun) {
 }
 
 workflow_warn_recipe_scope <- function() {
-  warning(
+  message(
     paste(
       "burgle.workflow() does not retain the full recipe.",
       "Only the supported formula-compatible preprocessing steps are carried over into the burgled object.",
-      "Other recipe steps, including common steps like `step_mutate()`, are not carried over and will cause burgle.workflow() to error."
+      "Other recipe steps, including common steps like `step_mutate()`, are not carried over; if burgle.workflow() cannot compile them, it falls back to the burgled fitted engine with a warning."
+    ),
+  )
+}
+
+workflow_warn_recipe_fallback <- function(reason) {
+  warning(
+    paste(
+      "burgle.workflow() could not carry over all recipe preprocessing into the burgled object.",
+      "Returning the burgled fitted engine instead.",
+      "Unsupported steps, including common steps like `step_mutate()`, are not carried over.",
+      "Predicting from this fallback object may require already-preprocessed `newdata` that matches the fitted engine predictors.",
+      "Original reason:", reason
+    ),
+    call. = FALSE
+  )
+}
+
+workflow_recipe_fallback_object <- function(burgled, reason) {
+  burgled$workflow_compile_warning <- reason
+
+  list(
+    object = burgled,
+    required_pkgs = character()
+  )
+}
+
+workflow_warn_prediction_fallback <- function(object) {
+  if (is.null(object$workflow_compile_warning)) {
+    return(invisible(NULL))
+  }
+
+  warning(
+    paste(
+      "This burgled workflow did not carry over all recipe preprocessing.",
+      "Prediction is falling back to the burgled fitted engine and may require already-preprocessed `newdata` matching the fitted engine predictors.",
+      "Original workflow-compilation reason:", object$workflow_compile_warning
     ),
     call. = FALSE
   )

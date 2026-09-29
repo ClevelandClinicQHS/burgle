@@ -84,7 +84,7 @@ test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
       workflows::fit(data = dat)
   )
 
-  expect_warning(
+  expect_message(
     bfit <- burgle(wf),
     "does not retain the full recipe"
   )
@@ -119,7 +119,7 @@ test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
   expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 
-test_that("burgle.workflow rejects unsafe step_lag recipes", {
+test_that("burgle.workflow warns and falls back for step_lag recipes", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("recipes")
   skip_if_not_installed("workflows")
@@ -141,13 +141,15 @@ test_that("burgle.workflow rejects unsafe step_lag recipes", {
     ) |>
     workflows::fit(data = dat)
 
-  expect_error(
-    burgle(wf),
-    "step_lag\\(\\) depends on row order and cross-row state"
+  expect_warning(
+    bfit <- burgle(wf),
+    "Returning the burgled fitted engine instead"
   )
+  expect_s3_class(bfit, "burgle_workflow")
+  expect_match(bfit$workflow_compile_warning, "step_lag\\(\\) depends on row order")
 })
 
-test_that("burgle.workflow rejects baked matrix or list predictor columns", {
+test_that("burgle.workflow warns and falls back for baked matrix or list predictor columns", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("recipes")
   skip_if_not_installed("workflows")
@@ -169,10 +171,12 @@ test_that("burgle.workflow rejects baked matrix or list predictor columns", {
     ) |>
     workflows::fit(data = dat)
 
-  expect_error(
-    burgle(wf),
-    "does not support workflows whose baked predictors contain matrix or list columns"
+  expect_warning(
+    bfit <- burgle(wf),
+    "Returning the burgled fitted engine instead"
   )
+  expect_s3_class(bfit, "burgle_workflow")
+  expect_match(bfit$workflow_compile_warning, "matrix or list columns")
 })
 
 test_that("burgle.workflow makes unsupported step_mutate handling obvious", {
@@ -197,13 +201,15 @@ test_that("burgle.workflow makes unsupported step_mutate handling obvious", {
     ) |>
     workflows::fit(data = dat)
 
-  expect_error(
-    suppressWarnings(burgle(wf)),
-    "step_mutate\\(\\).*not carried over"
+  expect_warning(
+    bfit <- burgle(wf),
+    "Returning the burgled fitted engine instead"
   )
+  expect_s3_class(bfit, "burgle_workflow")
+  expect_match(bfit$workflow_compile_warning, "step_mutate\\(\\).*not carried over")
 })
 
-test_that("burgle.workflow rejects unsafe factor interactions", {
+test_that("burgle.workflow warns and falls back for unsafe factor interactions", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("recipes")
   skip_if_not_installed("workflows")
@@ -227,10 +233,12 @@ test_that("burgle.workflow rejects unsafe factor interactions", {
       workflows::fit(data = dat)
   )
 
-  expect_error(
-    burgle(wf),
-    "step_interact\\(\\) is only supported when every referenced column is scalar"
+  expect_warning(
+    bfit <- burgle(wf),
+    "Returning the burgled fitted engine instead"
   )
+  expect_s3_class(bfit, "burgle_workflow")
+  expect_match(bfit$workflow_compile_warning, "step_interact\\(\\) is only supported when every referenced column is scalar")
 })
 
 test_that("burgle.workflow compiles harmonic date features", {
@@ -583,7 +591,7 @@ test_that("burgle.workflow supports flexsurv workflows when censored is availabl
   expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
 })
 
-test_that("burgle.workflow rejects transformed recipes for non-terms engines", {
+test_that("burgle.workflow warns and falls back for transformed recipes on non-terms engines", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("randomForestSRC")
   skip_if_not_installed("recipes")
@@ -607,8 +615,10 @@ test_that("burgle.workflow rejects transformed recipes for non-terms engines", {
     ) |>
     workflows::fit(data = dat)
 
-  expect_error(
-    burgle(wf),
-    "does not support recipe preprocessing for burgled objects of class `burgle_rfsrc`"
+  expect_warning(
+    bfit <- burgle(wf),
+    "Returning the burgled fitted engine instead"
   )
+  expect_s3_class(bfit, "burgle_workflow")
+  expect_match(bfit$workflow_compile_warning, "does not support recipe preprocessing for burgled objects of class `burgle_rfsrc`")
 })

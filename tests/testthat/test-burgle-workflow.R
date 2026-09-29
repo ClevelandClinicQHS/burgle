@@ -84,7 +84,10 @@ test_that("burgle.workflow compiles supported recipe steps on raw newdata", {
       workflows::fit(data = dat)
   )
 
-  bfit <- burgle(wf)
+  expect_warning(
+    bfit <- burgle(wf),
+    "does not retain the full recipe"
+  )
   new_dat <- data.frame(
     y = factor(rep("no", 10), levels = levels(dat$y)),
     x1 = seq(-1.5, 1.5, length.out = 10),
@@ -169,6 +172,34 @@ test_that("burgle.workflow rejects baked matrix or list predictor columns", {
   expect_error(
     burgle(wf),
     "does not support workflows whose baked predictors contain matrix or list columns"
+  )
+})
+
+test_that("burgle.workflow makes unsupported step_mutate handling obvious", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  dat <- data.frame(
+    y = factor(rep(c("no", "yes"), length.out = 40)),
+    x1 = stats::runif(40),
+    x2 = stats::runif(40)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2, data = dat) |>
+        recipes::step_mutate(x3 = x1 + x2)
+    ) |>
+    workflows::add_model(
+      parsnip::logistic_reg() |>
+        parsnip::set_engine("glm")
+    ) |>
+    workflows::fit(data = dat)
+
+  expect_error(
+    suppressWarnings(burgle(wf)),
+    "step_mutate\\(\\).*not carried over"
   )
 })
 

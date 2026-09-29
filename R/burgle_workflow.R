@@ -46,6 +46,8 @@ burgle.workflow <- function(object, ...) {
     return(burgled)
   }
 
+  workflow_warn_recipe_scope()
+
   compiled <- workflow_compile_recipe(
     recipe_trained = recipe_trained,
     recipe_untrained = recipe_untrained,
@@ -77,6 +79,17 @@ workflow_require_namespace <- function(pkg, caller = "burgle.workflow()") {
 
 workflow_namespace_function <- function(pkg, fun) {
   getExportedValue(pkg, fun)
+}
+
+workflow_warn_recipe_scope <- function() {
+  warning(
+    paste(
+      "burgle.workflow() does not retain the full recipe.",
+      "Only the supported formula-compatible preprocessing steps are carried over into the burgled object.",
+      "Other recipe steps, including common steps like `step_mutate()`, are not carried over and will cause burgle.workflow() to error."
+    ),
+    call. = FALSE
+  )
 }
 
 workflow_has_active_steps <- function(recipe_trained) {
@@ -282,7 +295,7 @@ workflow_compile_step <- function(state, step, step_class, step_subclass) {
       step_class,
       paste0(
         "Recipe step `", step_class,
-        "` is not supported because burgle.workflow() only compiles transformations that can be reproduced losslessly from raw `newdata`."
+        "` is not supported because burgle.workflow() only carries over formula-compatible transformations that can be reproduced losslessly from raw `newdata`; other steps, including `step_mutate()`, are not carried over."
       )
     )
   )

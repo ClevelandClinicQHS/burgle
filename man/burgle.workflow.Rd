@@ -15,7 +15,8 @@
 \arguments{
 \item{object}{A fitted \code{workflows::workflow()} with a recipe preprocessor.}
 
-\item{...}{Arguments passed to the underlying engine's \code{burgle()} method.}
+\item{...}{Arguments passed unchanged to the underlying engine's \code{burgle()},
+\code{predict()} or \code{predict_time()} method, as appropriate.}
 
 \item{newdata}{A data frame of raw predictors, plus externally supplied
 inputs required by omitted preprocessing.}
@@ -56,7 +57,11 @@ Aliased coefficients, missing rows and novel levels follow the underlying
 burgled model contract. Fitted terms and all parameter structures are kept
 in their original order rather than inferred from a new design matrix.
 Default nnet fits have their Hessian reconstructed transiently from trained
-predictors. Fits collapsing rows with \code{summ} need \code{Hess = TRUE} at fitting.
+predictors. Fits using nonzero \code{summ} need \code{Hess = TRUE} at fitting because
+nnet may reorder, as well as collapse, the training rows.
+Custom engine prediction functions that capture non-namespace environments
+are rejected to prevent indirectly retaining training objects; use standard
+links/distributions or standalone namespace/base-environment functions.
 Recipes does not retain global interaction contrast options: keep those
 options unchanged between fitting and burgling. Compiled contrasts are
 numeric matrices and do not depend on subsequent global option changes.

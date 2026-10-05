@@ -5,7 +5,8 @@
 #' to the engine's burgled prediction method, with all arguments unchanged.
 #'
 #' @param object A fitted `workflows::workflow()` with a recipe preprocessor.
-#' @param ... Arguments passed to the underlying engine's `burgle()` method.
+#' @param ... Arguments passed unchanged to the underlying engine's `burgle()`,
+#'   `predict()` or `predict_time()` method, as appropriate.
 #' @return A `burgle_workflow` containing a burgled model and compact trained
 #'   preprocessing metadata, not the original workflow or recipe.
 #' @details
@@ -35,7 +36,11 @@
 #' burgled model contract. Fitted terms and all parameter structures are kept
 #' in their original order rather than inferred from a new design matrix.
 #' Default nnet fits have their Hessian reconstructed transiently from trained
-#' predictors. Fits collapsing rows with `summ` need `Hess = TRUE` at fitting.
+#' predictors. Fits using nonzero `summ` need `Hess = TRUE` at fitting because
+#' nnet may reorder, as well as collapse, the training rows.
+#' Custom engine prediction functions that capture non-namespace environments
+#' are rejected to prevent indirectly retaining training objects; use standard
+#' links/distributions or standalone namespace/base-environment functions.
 #' Recipes does not retain global interaction contrast options: keep those
 #' options unchanged between fitting and burgling. Compiled contrasts are
 #' numeric matrices and do not depend on subsequent global option changes.
@@ -94,6 +99,15 @@ workflow_prepare_engine <- function(engine, predictors) {
   ## nnet's default workflow fit does not retain a Hessian. Its vcov() method
   ## would reconstruct a model frame from a call whose workflow data is gone.
   if (inherits(engine, "multinom") && is.null(engine$Hessian)) {
+    summ <- engine$call$summ
+    if (rlang::is_quosure(summ)) summ <- rlang::quo_get_expr(summ)
+    if (is.null(summ)) summ <- 0
+    if (!(is.numeric(summ) || is.logical(summ)) ||
+        length(summ) != 1L || !isTRUE(summ == 0)) {
+      stop("Multinomial workflows using nonzero or unresolved 'summ' require ",
+           "a stored Hessian because training rows may be reordered. ",
+           "Refit with set_engine('nnet', Hess = TRUE).", call. = FALSE)
+    }
     data <- as.data.frame(predictors)
     if (length(engine$na.action)) {
       data <- data[-as.integer(engine$na.action), , drop = FALSE]
@@ -123,6 +137,20 @@ new_burgle_workflow <- function(model, preprocessing, predictors,
 }
 
 workflow_clean_terms <- function(x) {
+  if (is.function(x)) {
+    env <- environment(x)
+    while (!is.null(env) && !isNamespace(env) &&
+           !identical(env, baseenv()) && !identical(env, emptyenv())) {
+      if (identical(env, globalenv()) || length(ls(env, all.names = TRUE))) {
+        stop("An engine prediction function captures a non-namespace environment ",
+             "that may retain training data, a recipe or a workflow. ",
+             "Use a standard link/distribution or standalone functions owned by ",
+             "a namespace or the base environment.", call. = FALSE)
+      }
+      env <- parent.env(env)
+    }
+    return(x)
+  }
   if (inherits(x, "terms")) {
     x <- stats::delete.response(x)
     attr(x, ".Environment") <- NULL

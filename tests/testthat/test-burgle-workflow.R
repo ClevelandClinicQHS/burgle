@@ -112,6 +112,8 @@ test_that("binomial workflows match probabilities and preserve simulation", {
                         type = "lp", seed = 151)
   workflow_test_compare(workflow, newdata, original = FALSE, draws = 2,
                         sims = 3, type = "response", seed = 152)
+  workflow_test_compare(workflow, newdata, original = FALSE, draws = 2,
+                        sims = 2, type = "link", se = TRUE, seed = 153)
 })
 
 test_that("multinomial workflows match class probabilities and seeded draws", {
@@ -196,6 +198,131 @@ test_that("default binary and multiclass nnet workflows recover covariance", {
         tolerance = 1e-10
       )
     }
+  }
+})
+
+test_that("nonzero multinomial summ requires a Hessian even without row collapse", {
+  workflow_test_dependencies()
+  skip_if_not_installed("nnet")
+  data <- iris[c("Species", "Sepal.Length", "Sepal.Width")]
+  set.seed(165)
+  data$unique_tag <- stats::runif(nrow(data))
+  recipe <- recipes::recipe(Species ~ ., data = data)
+  specification <- parsnip::set_engine(
+    parsnip::multinom_reg(), "nnet", trace = FALSE, maxit = 200, summ = 1
+  )
+  invisible(capture.output(
+    workflow <- workflow_test_fit(recipe, specification, data)
+  ))
+  engine <- workflows::extract_fit_engine(workflow)
+  expect_null(engine$Hessian)
+  expect_identical(nrow(engine$fitted.values), nrow(data))
+  baked <- workflow_test_baked(workflow, data[c("Sepal.Length", "Sepal.Width",
+                                               "unique_tag")])
+  expect_false(isTRUE(all.equal(
+    unname(engine$fitted.values),
+    unname(stats::predict(engine, newdata = baked, type = "probs"))
+  )))
+  expect_error(burgle(workflow), "summ.*require.*Hessian|Refit.*Hess")
+  specification <- parsnip::set_engine(
+    parsnip::multinom_reg(), "nnet", trace = FALSE, maxit = 200,
+    summ = 1, Hess = TRUE
+  )
+  invisible(capture.output(
+    workflow <- workflow_test_fit(recipe, specification, data)
+  ))
+  newdata <- head(data[c("Sepal.Length", "Sepal.Width", "unique_tag")])
+  reduced <- burgle(workflow)
+  expect_equal(unname(predict(reduced, newdata, type = "odds")),
+               unname(as.matrix(predict(workflow, new_data = newdata,
+                                        type = "prob"))),
+               tolerance = 1e-8)
+  workflow_test_compare(workflow, newdata, original = FALSE, draws = 2,
+                        type = "odds", seed = 166)
+})
+
+test_that("mutable multinomial summ cannot change Hessian recovery eligibility", {
+  workflow_test_dependencies()
+  skip_if_not_installed("nnet")
+  data <- iris[c("Species", "Sepal.Length", "Sepal.Width")]
+  set.seed(165)
+  data$unique_tag <- stats::runif(nrow(data))
+  recipe <- recipes::recipe(Species ~ ., data = data)
+  summ_value <- 1
+  specification <- parsnip::set_engine(
+    parsnip::multinom_reg(), "nnet", trace = FALSE, maxit = 200,
+    summ = summ_value
+  )
+  invisible(capture.output(
+    workflow <- workflow_test_fit(recipe, specification, data)
+  ))
+  engine <- workflows::extract_fit_engine(workflow)
+  expect_identical(nrow(engine$fitted.values), nrow(data))
+  expect_true(rlang::is_symbol(rlang::quo_get_expr(engine$call$summ),
+                               "summ_value"))
+  summ_value <- 0
+  expect_identical(rlang::eval_tidy(engine$call$summ), 0)
+  expect_error(burgle(workflow), "summ.*require.*Hessian|Refit.*Hess")
+
+  specification <- parsnip::set_engine(
+    parsnip::multinom_reg(), "nnet", trace = FALSE, maxit = 200, summ = 0
+  )
+  workflow <- workflow_test_fit(recipe, specification, data)
+  engine <- workflows::extract_fit_engine(workflow)
+  expect_identical(rlang::quo_get_expr(engine$call$summ), 0)
+  expect_null(engine$Hessian)
+  reduced <- burgle(workflow)
+  expect_s3_class(reduced$model, "burgle_multinom")
+  newdata <- head(data[c("Sepal.Length", "Sepal.Width", "unique_tag")])
+  expect_equal(unname(predict(reduced, newdata, type = "odds")),
+               unname(as.matrix(predict(workflow, new_data = newdata,
+                                        type = "prob"))),
+               tolerance = 1e-8)
+})
+
+test_that("custom glm inverse links cannot capture training or workflows", {
+  workflow_test_dependencies()
+  recipe <- recipes::recipe(mpg ~ wt + hp, data = mtcars)
+  reference <- workflow_test_fit(
+    recipe, parsnip::set_engine(parsnip::linear_reg(), "glm"), mtcars
+  )
+  family <- stats::gaussian()
+  family$linkinv <- local({
+    training <- mtcars
+    retained_workflow <- reference
+    retained_recipe <- recipe
+    function(eta) eta
+  })
+  workflow <- workflow_test_fit(
+    recipe, parsnip::set_engine(parsnip::linear_reg(), "glm", family = family),
+    mtcars
+  )
+  expect_error(burgle(workflow), "captures.*non-namespace|retain.*training")
+})
+
+test_that("namespace and standalone base glm inverse links remain supported", {
+  workflow_test_dependencies()
+  recipe <- recipes::recipe(mpg ~ wt + hp, data = mtcars)
+  links <- list(
+    stats::gaussian()$linkinv,
+    eval(quote(function(eta) eta), envir = baseenv()),
+    eval(quote(function(eta) eta),
+         envir = new.env(parent = asNamespace("stats")))
+  )
+  newdata <- head(mtcars[c("wt", "hp")])
+  for (link in links) {
+    family <- stats::gaussian()
+    family$linkinv <- link
+    workflow <- workflow_test_fit(
+      recipe, parsnip::set_engine(parsnip::linear_reg(), "glm", family = family),
+      mtcars
+    )
+    reduced <- burgle(workflow)
+    expect_identical(reduced$model$inv_link, link)
+    workflow_test_compare(workflow, newdata, type = "lp")
+    expect_equal(as.numeric(predict(reduced, newdata, type = "lp")),
+                 predict(workflow, new_data = newdata)$.pred,
+                 tolerance = 1e-10)
   }
 })
 
@@ -601,7 +728,18 @@ test_that("randomForestSRC integrates with compiled recipe predictors", {
   baked <- as.data.frame(recipes::juice(trained))
   set.seed(201)
   fit <- randomForestSRC::rfsrc(mpg ~ wt + hp, data = baked, ntree = 10)
+  sampler <- fit$forest$sampsize
+  sampler_environment <- environment(sampler)
+  sampler_bindings <- ls(sampler_environment, all.names = TRUE)
+  sampler_parent <- parent.env(sampler_environment)
   reduced <- workflow_test_wrap_engine(fit, trained, c("wt", "hp"))
+  expect_identical(fit$forest$sampsize, sampler)
+  expect_identical(environment(fit$forest$sampsize), sampler_environment)
+  expect_identical(ls(sampler_environment, all.names = TRUE), sampler_bindings)
+  expect_identical(parent.env(sampler_environment), sampler_parent)
+  expect_false(identical(environment(reduced$model$sampsize), sampler_environment))
+  expect_length(ls(environment(reduced$model$sampsize), all.names = TRUE), 0)
+  expect_identical(parent.env(environment(reduced$model$sampsize)), sampler_parent)
   newdata <- head(mtcars[c("wt", "hp")])
   baked_new <- as.data.frame(recipes::bake(trained, new_data = newdata,
                                           recipes::all_predictors()))

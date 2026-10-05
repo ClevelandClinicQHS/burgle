@@ -27,7 +27,13 @@ burgle.rfsrc <- function(object, ...){
   ### above this
   new_rf$event.info$cens <- unique(new_rf$event.info$cens)
   # new_rf$seed <- NULL
-  remove(list = ls(environment(new_rf$sampsize)), envir = environment(new_rf$sampsize))
+  ## Drop captured bindings, including hidden dots, without mutating the fit.
+  sampsize_env <- if (is.function(new_rf$sampsize)) environment(new_rf$sampsize) else NULL
+  if (!is.null(sampsize_env) && !isNamespace(sampsize_env) &&
+      !identical(sampsize_env, baseenv()) &&
+      !identical(sampsize_env, emptyenv())) {
+    environment(new_rf$sampsize) <- new.env(parent = parent.env(sampsize_env))
+  }
   classes <- attr(new_rf, "class")
   if (sum(grepl("quantreg", class(object))) > 0){
     new_rf$yvar.grow <- object$yvar.grow

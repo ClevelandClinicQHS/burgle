@@ -77,7 +77,8 @@ design matrix with a newly inferred one.
 For default nnet fits without a stored Hessian, extraction computes nnet's
 Hessian from the trained mold and fitted probabilities before delegating to
 `burgle.multinom()`; those training predictors are not retained. Fits that
-collapse training rows with `summ` must supply `Hess = TRUE` when fitted.
+reorder or collapse training rows with nonzero `summ` must supply `Hess = TRUE`
+when fitted.
 
 ### Step and runtime-dependency inventory
 
@@ -165,6 +166,12 @@ The tested upstream censored 0.3.5.9000 forest adapter fits correctly but its
 survival-probability helper references a missing `check_data_frame()` function.
 Forest workflow tests therefore compare the fitted engine directly; the
 upstream workflow survival oracle is skipped only for that specific defect.
+Custom engine callbacks with captured non-namespace environments are rejected:
+such closures can otherwise serialize training data, a recipe or a workflow.
+Standard links/distributions and standalone namespace/base-environment
+functions remain supported; closure-parameter compilation is not implemented.
+The existing binary `multinom` odds/response reshaping limitation is unchanged;
+binary workflow tests cover linear predictors and covariance recovery.
 
 ## Linear Model Example
 

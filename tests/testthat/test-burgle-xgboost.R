@@ -151,11 +151,91 @@ test_that("XGBoost early stopping survives burgling and serialization", {
   best <- xgboost::xgb.attributes(fit)$best_iteration
   expect_false(is.null(best))
   bfit <- burgle(fit)
-  expect_equal(xgboost::xgb.attributes(xgboost::xgb.load.raw(bfit$raw))$best_iteration,
+  raw <- bfit$raw
+  if (!is.null(attr(raw, "compression"))) {
+    raw <- memDecompress(raw, type = attr(raw, "compression"))
+  }
+  expect_equal(xgboost::xgb.attributes(xgboost::xgb.load.raw(raw))$best_iteration,
                best)
   xgb_expect_parity(fit, x)
   expect_equal(predict(unserialize(serialize(bfit, NULL)), x),
                predict(fit, x), tolerance = 0)
+})
+
+test_that("XGBoost buffers are losslessly compressed and metadata is prediction-only", {
+  skip_if_not_installed("xgboost", minimum_version = "1.7.0")
+  x <- as.matrix(mtcars[, c("wt", "hp")])
+  fit <- xgb_test_fit(x, mtcars$mpg)
+  raw <- xgboost::xgb.save.raw(fit, raw_format = "ubj")
+  if (xgb_test_legacy()) {
+    fit$params$unused <- rep("unnecessary training parameter", 1000)
+  } else {
+    params <- attr(fit, "params")
+    params$unused <- rep("unnecessary training parameter", 1000)
+    attr(fit, "params") <- params
+  }
+  bfit <- burgle(fit)
+  expect_identical(attr(bfit$raw, "compression"), "xz")
+  expect_identical(memDecompress(bfit$raw, type = "xz"), raw)
+  expect_lt(as.numeric(object.size(bfit$raw)), as.numeric(object.size(raw)))
+  old_metadata <- if (xgb_test_legacy()) {
+    fit[c("feature_names", "params")]
+  } else {
+    attributes(fit)[intersect(c("metadata", "params"), names(attributes(fit)))]
+  }
+  old <- structure(list(raw = raw, metadata = old_metadata,
+                        model_class = "xgb.Booster"), class = "burgle_xgboost")
+  expect_lt(as.numeric(object.size(bfit)), as.numeric(object.size(old)))
+  expect_false("unused" %in% names(bfit$metadata$params))
+  if (xgb_test_legacy()) {
+    expect_setequal(names(bfit$metadata$params), "nthread")
+    expect_identical(bfit$metadata$feature_names, colnames(x))
+  } else {
+    expect_length(bfit$metadata, 0)
+  }
+  expect_equal(predict(bfit, x), predict(fit, x), tolerance = 0)
+  expect_equal(predict(old, x), predict(fit, x), tolerance = 0)
+})
+
+test_that("Minimal XGBoost metadata retains linear booster tree-limit behavior", {
+  skip_if_not_installed("xgboost", minimum_version = "1.7.0")
+  x <- as.matrix(mtcars[, c("wt", "hp")])
+  fit <- xgb_test_fit(x, mtcars$mpg, booster = "gblinear")
+  if (xgb_test_legacy()) {
+    expect_identical(burgle(fit)$metadata$params$booster, "gblinear")
+    xgb_expect_parity(fit, x, ntreelimit = 1)
+  } else {
+    xgb_expect_parity(fit, x)
+  }
+})
+
+test_that("Minimal high-level XGBoost metadata preserves quantile output names", {
+  skip_if_not_installed("xgboost", minimum_version = "3.0.0")
+  x <- as.matrix(mtcars[, c("wt", "hp")])
+  fit <- xgboost::xgboost(x = x, y = mtcars$mpg, nrounds = 5,
+                         objective = "reg:quantileerror", quantile_alpha = c(0.1, 0.9),
+                         nthreads = 1, verbosity = 0)
+  bfit <- burgle(fit)
+  expect_identical(bfit$metadata$params$quantile_alpha, c(0.1, 0.9))
+  expect_setequal(names(bfit$metadata$params), "quantile_alpha")
+  expect_equal(predict(bfit, x), predict(fit, x), tolerance = 0)
+  expect_equal(predict(unserialize(serialize(bfit, NULL)), x),
+               predict(fit, x), tolerance = 0)
+})
+
+test_that("Minimal high-level XGBoost metadata preserves multiple response names", {
+  skip_if_not_installed("xgboost", minimum_version = "3.0.0")
+  x <- as.matrix(iris[, 1:2])
+  y <- as.matrix(iris[, 3:4])
+  fit <- xgboost::xgboost(x = x, y = y, nrounds = 5,
+                         nthreads = 1, verbosity = 0)
+  bfit <- burgle(fit)
+  expect_identical(bfit$metadata$metadata$y_names, colnames(y))
+  expect_equal(predict(bfit, x), predict(fit, x), tolerance = 0)
+  old <- bfit
+  old$raw <- xgboost::xgb.save.raw(fit, raw_format = "ubj")
+  old$metadata <- attributes(fit)[c("metadata", "params")]
+  expect_equal(predict(old, x), predict(fit, x), tolerance = 0)
 })
 
 test_that("Burgled XGBoost objects omit training artifacts and are RDS-safe", {

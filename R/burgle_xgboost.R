@@ -1,7 +1,7 @@
 #' Burgle an XGBoost model
 #'
-#' Stores the fitted booster as a portable UBJSON model buffer, without its
-#' training data, evaluation log, callbacks, or call. Predictions are delegated
+#' Stores the fitted booster as a losslessly compressed UBJSON model buffer,
+#' without its training data, evaluation log, callbacks, or call. Predictions are delegated
 #' to XGBoost, retaining its output shapes and prediction options.
 #'
 #' @param object A fitted \code{xgb.Booster} or \code{xgboost} model.
@@ -15,6 +15,10 @@
 #' Both \code{xgb.train} boosters and \code{xgboost} models are supported.
 #' On XGBoost 3.x, the high-level model's response labels and prediction
 #' metadata are retained. Early-stopping information is stored in the model.
+#' Only prediction-related R metadata is retained. Model buffers are compressed
+#' with \code{memCompress(type = "xz")} when this reduces their in-memory size.
+#' Prediction decompresses and reloads the booster; existing uncompressed
+#' \code{burgle_xgboost} objects remain supported.
 #' No parameter-uncertainty draws or response simulations are provided.
 #' Model buffers do not contain the training matrix, but fitted trees,
 #' feature names, and response labels can still contain sensitive information.
@@ -33,12 +37,23 @@ burgle.xgb.Booster <- function(object, ...){
     complete <- getExportedValue("xgboost", "xgb.Booster.complete")
     object <- complete(object, saveraw = FALSE)
     metadata <- object[intersect(c("feature_names", "params"), names(object))]
-  } else {
-    metadata <- attributes(object)[intersect(c("metadata", "params"),
-                                             names(attributes(object)))]
+    metadata$params <- metadata$params[intersect(c("booster", "nthread"),
+                                                 names(metadata$params))]
+  } else if (inherits(object, "xgboost")) {
+    attrs <- attributes(object)
+    metadata$metadata <- attrs$metadata[intersect(c("y_levels", "y_names"),
+                                                 names(attrs$metadata))]
+    metadata$params <- attrs$params[intersect(c("quantile_alpha", "expectile_alpha"),
+                                             names(attrs$params))]
   }
+  metadata <- metadata[lengths(metadata) > 0L]
 
-  l <- list(raw = xgboost::xgb.save.raw(object, raw_format = "ubj"),
+  raw <- xgboost::xgb.save.raw(object, raw_format = "ubj")
+  compressed <- memCompress(raw, type = "xz")
+  attr(compressed, "compression") <- "xz"
+  if (utils::object.size(compressed) < utils::object.size(raw)) raw <- compressed
+
+  l <- list(raw = raw,
             metadata = metadata,
             model_class = if (inherits(object, "xgboost")) "xgboost" else "xgb.Booster")
   class(l) <- "burgle_xgboost"
@@ -58,11 +73,14 @@ predict.burgle_xgboost <- function(object, newdata, ...){
     stop("Package 'xgboost' is required to predict from burgled XGBoost models.")
   }
 
+  raw <- object$raw
+  compression <- attr(raw, "compression", exact = TRUE)
+  if (!is.null(compression)) raw <- memDecompress(raw, type = compression)
   loader <- xgboost::xgb.load.raw
   model <- if ("as_booster" %in% names(formals(loader))) {
-    loader(object$raw, as_booster = TRUE)
+    loader(raw, as_booster = TRUE)
   } else {
-    loader(object$raw)
+    loader(raw)
   }
   if ("as_booster" %in% names(formals(loader))) {
     for (nm in names(object$metadata)) model[[nm]] <- object$metadata[[nm]]

@@ -42,7 +42,7 @@ devtools::install_github("ClevelandClinicQHS/burgle")
 
 `burgle()` supports models from `xgboost::xgb.train()` and
 `xgboost::xgboost()` with the optional **xgboost** package (>= 1.7.0).
-It stores a portable UBJSON model buffer and prediction metadata, not the
+It stores a losslessly compressed UBJSON model buffer and only prediction metadata, not the
 training matrix, callbacks, evaluation log, or call.
 Prediction parity has been verified with XGBoost 1.7.6.1 and 3.0.5.1.
 
@@ -77,6 +77,15 @@ simulations for XGBoost. GPU execution, stochastic DART predictions with
 `training = TRUE`, custom objectives, and cross-version RDS migration are not
 covered by these tests. Each prediction reloads the booster, adding overhead;
 size savings depend on training artifacts because all fitted trees are retained.
+XZ compression reduces the stored buffer without removing trees or changing
+predictions; it is used only when the compressed buffer (including its format
+marker) is smaller. Compression makes burgling slower and decompression adds
+work to each prediction. Existing uncompressed burgled objects still work.
+The `raw` field is an internal buffer, not necessarily directly loadable by
+`xgb.load.raw()`; use `predict()` on the burgled object.
+Beyond compression and removing unused metadata, large further reductions are
+unlikely without dropping trees, reducing precision, or restricting supported
+prediction modes, which would compromise exact prediction parity.
 Removing training data is not anonymization: trees, feature names, and response
 labels may still disclose sensitive information.
 

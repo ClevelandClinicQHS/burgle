@@ -27,8 +27,8 @@ Preprocessing and column order must match training.}
   \code{predict} returns the same predictions as the original model.
 }
 \description{
-Stores the fitted booster as a portable UBJSON model buffer, without its
-training data, evaluation log, callbacks, or call. Predictions are delegated
+Stores the fitted booster as a losslessly compressed UBJSON model buffer,
+without its training data, evaluation log, callbacks, or call. Predictions are delegated
 to XGBoost, retaining its output shapes and prediction options.
 }
 \details{
@@ -36,6 +36,10 @@ Requires the optional \pkg{xgboost} package (version 1.7.0 or later).
 Both \code{xgb.train} boosters and \code{xgboost} models are supported.
 On XGBoost 3.x, the high-level model's response labels and prediction
 metadata are retained. Early-stopping information is stored in the model.
+Only prediction-related R metadata is retained. Model buffers are compressed
+with \code{memCompress(type = "xz")} when this reduces their in-memory size.
+Prediction decompresses and reloads the booster; existing uncompressed
+\code{burgle_xgboost} objects remain supported.
 No parameter-uncertainty draws or response simulations are provided.
 Model buffers do not contain the training matrix, but fitted trees,
 feature names, and response labels can still contain sensitive information.

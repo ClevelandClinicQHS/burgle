@@ -1,8 +1,10 @@
 xgb_test_fit <- function(x, y, objective = "reg:squarederror", ...){
   set.seed(123)
+  params <- c(list(objective = objective, nthread = 1, max_depth = 2,
+                   eta = 0.3), list(...))
+  if (identical(params$booster, "gblinear")) params$max_depth <- NULL
   xgboost::xgb.train(
-    params = c(list(objective = objective, nthread = 1, max_depth = 2,
-                    eta = 0.3), list(...)),
+    params = params,
     data = xgboost::xgb.DMatrix(x, label = y, nthread = 1),
     nrounds = 5, verbose = 0
   )
@@ -50,12 +52,27 @@ test_that("XGBoost accepts dense, sparse, and DMatrix prediction inputs", {
   skip_if_not_installed("Matrix")
   x <- as.matrix(mtcars[, c("wt", "hp", "am")])
   sparse <- as(Matrix::Matrix(x, sparse = TRUE), "dgCMatrix")
-  inputs <- list(x, sparse, xgboost::xgb.DMatrix(x, nthread = 1),
+  csr <- as(sparse, "RsparseMatrix")
+  inputs <- list(x, sparse, csr, xgboost::xgb.DMatrix(x, nthread = 1),
                  xgboost::xgb.DMatrix(sparse, nthread = 1))
   for (training in list(x, sparse)) {
     fit <- xgb_test_fit(training, mtcars$mpg)
     for (input in inputs) xgb_expect_parity(fit, input)
   }
+})
+
+test_that("XGBoost sparse datasets and encoded categorical predictors match", {
+  skip_if_not_installed("xgboost", minimum_version = "1.7.0")
+  e <- new.env()
+  utils::data("agaricus.train", package = "xgboost", envir = e)
+  x <- e$agaricus.train$data[1:200, ]
+  fit <- xgb_test_fit(x, e$agaricus.train$label[1:200], "binary:logistic")
+  xgb_expect_parity(fit, x[1:10, , drop = FALSE])
+  xgb_expect_parity(fit, x[1, , drop = FALSE])
+
+  x <- stats::model.matrix(~ Species + Sepal.Width - 1, data = iris)
+  fit <- xgb_test_fit(x, iris$Sepal.Length)
+  xgb_expect_parity(fit, x)
 })
 
 test_that("XGBoost missing values, sentinels, and base margins are preserved", {
@@ -169,7 +186,7 @@ test_that("XGBoost feature validation and invalid input errors are retained", {
   fit <- xgb_test_fit(x, mtcars$mpg)
   bfit <- burgle(fit)
   expect_error(predict(bfit, x[, 1, drop = FALSE]))
-  expect_error(predict(bfit, "not-an-existing-data-file"))
+  expect_error(predict(bfit, list(wt = 1, hp = 2)))
   if (is.list(fit)) {
     expect_error(predict(bfit, x[, 2:1]), "Feature names")
     expect_error(predict(bfit, as.data.frame(x)))
@@ -189,10 +206,19 @@ test_that("High-level xgboost models retain their prediction interface", {
                              nthreads = 1, verbosity = 0)
       xgb_expect_parity(fit, x)
       xgb_expect_parity(fit, as.data.frame(x)[, 4:1])
+      xgb_expect_parity(fit, x, iteration_range = c(1, 3))
+      restored <- unserialize(serialize(burgle(fit), NULL))
+      expect_equal(predict(restored, x), predict(fit, x), tolerance = 0)
+      expect_error(predict(burgle(fit), xgboost::xgb.DMatrix(x, nthread = 1)),
+                   "not supported")
       for (type in c("raw", "leaf", "contrib")) {
         xgb_expect_parity(fit, x, type = type)
       }
-      if (is.factor(y)) xgb_expect_parity(fit, x, type = "class")
+      if (is.factor(y)) {
+        xgb_expect_parity(fit, x, type = "class")
+        expect_equal(predict(restored, x, type = "class"),
+                     predict(fit, x, type = "class"), tolerance = 0)
+      }
     }
 
     df <- data.frame(length = iris$Sepal.Length, species = iris$Species)

@@ -38,6 +38,47 @@ devtools::install_github("ClevelandClinicQHS/burgle")
  2. The removal of data from the model objects can allow them to be shared freely, if there are data sharing concerns or requirements.
  3. A streamlined method to simulate response for parameter uncertainty and probabilistic sampling
 
+## XGBoost
+
+`burgle()` supports models from `xgboost::xgb.train()` and
+`xgboost::xgboost()` with the optional **xgboost** package (>= 1.7.0).
+It stores a portable UBJSON model buffer and prediction metadata, not the
+training matrix, callbacks, evaluation log, or call.
+
+```{r xgboost, eval = FALSE}
+x <- as.matrix(mtcars[, c("wt", "hp")])
+fit <- xgboost::xgb.train(
+  params = list(objective = "reg:squarederror", nthread = 1),
+  data = xgboost::xgb.DMatrix(x, label = mtcars$mpg),
+  nrounds = 10, verbose = 0
+)
+bfit <- burgle(fit)
+all.equal(predict(fit, x), predict(bfit, x))
+predict(bfit, x, outputmargin = TRUE)
+```
+
+**What works:** prediction parity tests cover regression, binary and multiclass
+classification, Poisson counts, Cox survival scores, and ranking; tree, linear,
+and DART boosters; dense and sparse matrices and `xgb.DMatrix` inputs; missing
+values, base margins, early stopping, iteration subsets, leaf indices, SHAP
+contributions/interactions, and RDS round trips. Datasets include `mtcars`,
+`iris`, `airquality`, `survival::lung`, and XGBoost's sparse `agaricus.train`.
+Modern high-level models also retain response/class labels and their `type`
+interface, including native factor data-frame inputs.
+
+**Limitations:** prediction options and output shapes follow the installed
+XGBoost version and the original model's interface. Older releases require
+numeric/encoded matrices rather than data frames; modern high-level `xgboost`
+models do not accept `xgb.DMatrix` for prediction. Apply the same preprocessing,
+feature order, and factor levels used during training; burgle does not infer
+encodings or recipes. There are no parameter-uncertainty draws or response
+simulations for XGBoost. GPU execution, stochastic DART predictions with
+`training = TRUE`, custom objectives, and cross-version RDS migration are not
+covered by these tests. Each prediction reloads the booster, adding overhead;
+size savings depend on training artifacts because all fitted trees are retained.
+Removing training data is not anonymization: trees, feature names, and response
+labels may still disclose sensitive information.
+
 ## Linear Model Example
 
 ```{r example}

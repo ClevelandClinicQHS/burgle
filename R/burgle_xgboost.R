@@ -29,7 +29,8 @@ burgle.xgb.Booster <- function(object, ...){
   }
 
   metadata <- list()
-  if (is.list(object)) {
+  if ("as_booster" %in% names(formals(xgboost::xgb.load.raw))) {
+    object <- xgboost::xgb.Booster.complete(object, saveraw = FALSE)
     metadata <- object[intersect(c("feature_names", "params"), names(object))]
   } else {
     metadata <- attributes(object)[intersect(c("metadata", "params"),
@@ -62,7 +63,7 @@ predict.burgle_xgboost <- function(object, newdata, ...){
   } else {
     loader(object$raw)
   }
-  if (is.list(model)) {
+  if ("as_booster" %in% names(formals(loader))) {
     for (nm in names(object$metadata)) model[[nm]] <- object$metadata[[nm]]
   } else {
     for (nm in names(object$metadata)) attr(model, nm) <- object$metadata[[nm]]

@@ -36,6 +36,7 @@ devtools::install_github("ClevelandClinicQHS/burgle")
 `xgboost::xgboost()` with the optional **xgboost** package (>= 1.7.0).
 It stores a portable UBJSON model buffer and prediction metadata, not the
 training matrix, callbacks, evaluation log, or call.
+Prediction parity has been verified with XGBoost 1.7.6.1 and 3.0.5.1.
 
 ``` r
 x <- as.matrix(mtcars[, c("wt", "hp")])

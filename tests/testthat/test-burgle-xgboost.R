@@ -15,6 +15,10 @@ xgb_expect_parity <- function(fit, newdata, ...){
                predict(fit, newdata, ...), tolerance = 0)
 }
 
+xgb_test_legacy <- function(){
+  "as_booster" %in% names(formals(xgboost::xgb.load.raw))
+}
+
 test_that("XGBoost regression predictions match on multiple datasets and row counts", {
   skip_if_not_installed("xgboost", minimum_version = "1.7.0")
   datasets <- list(
@@ -158,7 +162,7 @@ test_that("Burgled XGBoost objects omit training artifacts and are RDS-safe", {
   skip_if_not_installed("xgboost", minimum_version = "1.7.0")
   x <- as.matrix(mtcars[, c("wt", "hp")])
   fit <- xgb_test_fit(x, mtcars$mpg)
-  if (is.list(fit)) {
+  if (xgb_test_legacy()) {
     fit$training_data <- x
     fit$callbacks <- list(function() x)
   } else {
@@ -178,6 +182,8 @@ test_that("Burgled XGBoost objects omit training artifacts and are RDS-safe", {
   expect_equal(predict(restored, x), predict(fit, x), tolerance = 0)
   expect_equal(burgle(fit), bfit)
   expect_equal(predict(bfit, x), predict(bfit, x), tolerance = 0)
+  restored_fit <- unserialize(serialize(fit, NULL))
+  xgb_expect_parity(restored_fit, x)
 })
 
 test_that("XGBoost feature validation and invalid input errors are retained", {
@@ -187,7 +193,7 @@ test_that("XGBoost feature validation and invalid input errors are retained", {
   bfit <- burgle(fit)
   expect_error(predict(bfit, x[, 1, drop = FALSE]))
   expect_error(predict(bfit, list(wt = 1, hp = 2)))
-  if (is.list(fit)) {
+  if (xgb_test_legacy()) {
     expect_error(predict(bfit, x[, 2:1]), "Feature names")
     expect_error(predict(bfit, as.data.frame(x)))
   } else {

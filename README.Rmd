@@ -38,6 +38,119 @@ devtools::install_github("ClevelandClinicQHS/burgle")
  2. The removal of data from the model objects can allow them to be shared freely, if there are data sharing concerns or requirements.
  3. A streamlined method to simulate response for parameter uncertainty and probabilistic sampling
 
+## Fitted workflows
+
+`burgle()` accepts fitted tidymodels workflows with a trained recipe and a
+data-frame/tibble blueprint. It compiles preprocessing into ordered operations
+containing trained parameters, then calls the fitted engine's existing
+`burgle()` method. Prediction transforms new predictors before dispatching to
+that burgled engine. The returned object retains neither a workflow nor a recipe
+and never calls `recipes::bake()` during prediction.
+
+### Supported-model inventory
+
+| Engine class | Retained prediction metadata | Prediction contract / tidymodels integration |
+|:--|:--|:--|
+| `lm` | coefficients, covariance, residual variance, terms, levels, contrasts | parsnip `linear_reg(engine = "lm")`; `lp`, `link`, `response`, draws, simulations, `se`, `se_type`, limits, seed |
+| `glm` | coefficients, covariance, residual variance, terms, levels, contrasts, family, inverse link | parsnip `logistic_reg(engine = "glm")`; all existing GLM families via the engine method; `lp`, `link`, binomial `response`, draws, simulations, `se`, seed |
+| `multinom` | flattened class coefficients, covariance, reference/response levels, terms, contrasts | parsnip `multinom_reg(engine = "nnet")`; `lp`, `odds`, sampled `response`, `floor`, draws, simulations, seed |
+| `coxph` | coefficients, covariance, terms, levels, contrasts, baseline hazards | censored `proportional_hazards(engine = "survival")`; `lp`, risk/response at times, draws, simulations, seed, `predict_time()` |
+| `cph` | coefficients, covariance, terms, levels, contrasts, baseline hazards | no built-in parsnip/censored adapter; existing Cox prediction contract |
+| `flexsurvreg` | distribution parameters and indices, covariance, terms, levels, contrasts, distribution functions/transforms, event times | censored `survival_reg(engine = "flexsurv")`; existing `lp`, risk/response/time, draws, simulations, seed, `predict_time()` |
+| `CauseSpecificCox` | per-cause coefficients/covariances, terms, levels, contrasts, hazards and event times | no built-in adapter; `lp`, risk/response, cause, times, draws, simulations, `predict_time()` |
+| `rfsrc` | burgled native forest and its prediction metadata, not GLM coefficients | no built-in parsnip/censored adapter; regression/classification/survival/competing-risk modes, risk/response, simulations, cause, times and engine arguments |
+
+An adapter must produce one of these fitted classes; no unsupported engine is
+made supported by wrapping it in a workflow. Engines without a built-in adapter
+are tested by composing their actual burgled models with compiled preprocessing.
+There is no XGBoost method in this version of burgle.
+
+The wrapper does **not** translate prediction argument meanings or return
+shapes into parsnip conventions. In particular, burgle GLM `type = "link"`
+applies the inverse link (probabilities for binomial fits), while `response`
+samples outcomes. Uncertainty, seeds and limitations are exactly those of the
+existing engine method. Fitted terms, contrasts, coefficient order and every
+model-specific covariance/parameter structure remain unchanged: transformations
+reproduce the trained predictor columns rather than replacing the engine's
+design matrix with a newly inferred one.
+
+### Step and runtime-dependency inventory
+
+| Steps | Compiled information | Prediction dependency |
+|:--|:--|:--|
+| `step_poly()` | raw/orthogonal degree, learned orthogonal coefficients, output dimensions/names | stats |
+| `step_ns()`, `step_bs()` | knots, boundary knots, intercept, degree, dimensions/names | splines |
+| `step_spline_b()`, `step_spline_natural()` | trained splines2 basis attributes/options and dimensions/names | splines2 |
+| `step_poly_bernstein()` | trained Bernstein basis attributes and dimensions/names | splines2 |
+| `step_spline_monotone()`, `step_spline_convex()`, `step_spline_nonnegative()` | trained I-, C-, and M-spline attributes/options and dimensions/names | splines2 |
+| `step_interact()` | resolved interaction terms, factor expansion, contrasts, output names/separator | stats |
+| `step_harmonic()` | frequencies, starting values, cycle size, sin/cos ordering | base R |
+| `step_log()`, `step_sqrt()`, `step_inverse()`, `step_invlogit()`, `step_logit()` | selected columns, configured bases/offsets/signed behavior where available | base R / stats |
+| `step_abs()` | selected columns; absolute values | base R |
+| `step_ratio()` | trained numerator/denominator pairs and resolved output names | base R |
+| `step_lag()` | lags, fill value, prefix, selected columns, generated order | dplyr |
+
+The recipe compiler follows the actual recipes 1.0.9 implementations. All
+listed steps except `step_abs()` are supplied by recipes; `burgle::step_abs()`
+is a recipes extension supplied here because recipes does not provide that
+step. It uses base `abs()` semantics. Workflow extraction requires workflows
+and recipes; prediction only needs the dependencies in the table, plus those
+required by the underlying burgled model. Install optional packages separately.
+Prepared basis matrices, recipe templates, training observations and selection
+closures are not retained. `saveRDS()` / `readRDS()` preserves compiled objects.
+
+```{r workflow-example, eval = FALSE}
+library(workflows)
+library(parsnip)
+library(recipes)
+
+rec <- recipe(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris) |>
+  step_log(Petal.Length, offset = 1) |>
+  step_ns(Sepal.Width, deg_free = 3) |>
+  step_interact(terms = ~ starts_with("Sepal.Width_ns_"):Petal.Length)
+wf <- workflow() |>
+  add_recipe(rec) |>
+  add_model(linear_reg() |> set_engine("lm")) |>
+  fit(iris)
+compact <- burgle(wf)
+predict(compact, head(iris), type = "lp")
+predict(compact, head(iris), original = FALSE, draws = 3, seed = 42)
+```
+
+### Omitted preprocessing and limitations
+
+Unsupported steps warn with their identity and position and are omitted, not
+silently treated as supported. Inference-time `skip = TRUE` steps are not
+evaluated. Missing dependencies produce actionable errors: supply required
+omitted preprocessing outputs externally. A skipped transformation of an
+existing column may be structurally valid but **still changes the meaning of
+the input**; there is no prediction-equivalence guarantee for such workflows.
+Fitted model terms and parameters are never dropped to accommodate omissions.
+
+```{r workflow-warning, eval = FALSE}
+centered <- workflow() |>
+  add_recipe(recipe(Sepal.Length ~ Sepal.Width, data = iris) |>
+               step_center(Sepal.Width)) |>
+  add_model(linear_reg() |> set_engine("lm")) |>
+  fit(iris)
+compact <- burgle(centered) ## Warns: step_center is omitted.
+external <- head(iris)
+external$Sepal.Width <- external$Sepal.Width - mean(iris$Sepal.Width)
+predict(compact, external) ## Supply the omitted centering yourself.
+```
+
+Recipe execution order, trained selections, generated names and
+`keep_original_cols` behavior are preserved. Lags use each batch's supplied row
+order and fill leading rows independently: no sorting, grouping, lookback or
+cross-call state is added. Factor and missing/domain-value behavior follows the
+compiled step and then the underlying model; models that omit missing rows may
+therefore return fewer predictions. Rank-deficient/aliased fits retain their
+existing engine limitations, including coefficient warnings and uncertainty
+limitations. Formula/variable workflow preprocessors, matrix blueprints and
+workflow postprocessors are explicitly rejected; use a zero-step recipe for
+ordinary predictors. Empty and single-row batches remain subject to the
+underlying model's supported prediction contract.
+
 ## Linear Model Example
 
 ```{r example}

@@ -10,6 +10,7 @@ LazyData: true
 RoxygenNote: 7.3.3
 Imports:
     stats,
+    splines,
     MASS,
     Rcpp,
     RcppEigen,
@@ -21,7 +22,13 @@ Suggests:
     testthat (>= 3.0.0),
     prodlim,
     randomForestSRC,
-    rms
+    rms,
+    recipes (>= 1.0.9),
+    workflows (>= 1.1.4),
+    parsnip (>= 1.2.1),
+    censored (>= 0.3.1),
+    splines2 (>= 0.5.1),
+    dplyr (>= 1.1.0)
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

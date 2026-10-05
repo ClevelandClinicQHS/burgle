@@ -46,7 +46,10 @@ burgle.workflow <- function(object, ...) {
   recipe_untrained <- extract_recipe(object, estimated = FALSE)
   mold <- extract_mold(object)
 
-  specs <- workflow_spline_specs(recipe_trained)
+  spline_info <- workflow_spline_specs(recipe_trained)
+  specs <- spline_info$specs
+  workflow_warn_skipped_steps(spline_info$skipped_steps)
+
   if (length(specs) == 0L) {
     stop("The workflow must contain at least one step_bs() or step_ns() step.")
   }
@@ -258,8 +261,22 @@ workflow_terms_formula <- function(labels, intercept = TRUE) {
   stats::as.formula(call("~", rhs), env = baseenv())
 }
 
+workflow_warn_skipped_steps <- function(skipped_steps) {
+  if (length(skipped_steps) == 0L) {
+    return(invisible(NULL))
+  }
+
+  warning(
+    "Unsupported recipe step(s) were skipped during workflow burgling: ",
+    paste(sprintf("`%s`", skipped_steps), collapse = ", "),
+    ". Only trained `step_bs()` and `step_ns()` steps are compiled into the burgled `terms` object.",
+    call. = FALSE
+  )
+}
+
 workflow_spline_specs <- function(recipe) {
   specs <- list()
+  skipped_steps <- character()
 
   for (step in recipe$steps) {
     kind <- if (inherits(step, "step_bs")) {
@@ -271,11 +288,8 @@ workflow_spline_specs <- function(recipe) {
     }
 
     if (is.na(kind)) {
-      stop(
-        "Unsupported recipe step: ",
-        class(step)[1L],
-        ". Only step_bs and step_ns are supported for now."
-      )
+      skipped_steps <- unique(c(skipped_steps, class(step)[1L]))
+      next
     }
 
     if (!isTRUE(step$trained) || isTRUE(step$skip) || is.null(step$objects)) {
@@ -305,7 +319,10 @@ workflow_spline_specs <- function(recipe) {
     }
   }
 
-  specs
+  list(
+    specs = specs,
+    skipped_steps = skipped_steps
+  )
 }
 
 workflow_training_rows <- function(raw_training, baked_predictors) {

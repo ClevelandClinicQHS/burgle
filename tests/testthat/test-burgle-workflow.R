@@ -138,7 +138,7 @@ test_that("burgle.workflow stores numeric spline knots and boundaries", {
   expect_true(all(vapply(specs, function(x) is.numeric(x$boundary), logical(1))))
 })
 
-test_that("burgle.workflow rejects unsupported recipe steps", {
+test_that("burgle.workflow warns and skips unsupported recipe steps", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("recipes")
   skip_if_not_installed("workflows")
@@ -160,8 +160,10 @@ test_that("burgle.workflow rejects unsupported recipe steps", {
     ) |>
     workflows::fit(data = dat)
 
-  expect_error(
-    burgle(wf),
-    "Only step_bs and step_ns are supported for now"
+  expect_warning(
+    bfit <- burgle(wf),
+    "Unsupported recipe step\\(s\\) were skipped"
   )
+  expect_s3_class(bfit, "burgle_glm")
+  expect_s3_class(bfit$terms, "terms")
 })

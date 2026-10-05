@@ -21,7 +21,9 @@ Suggests:
     testthat (>= 3.0.0),
     prodlim,
     randomForestSRC,
-    rms
+    rms,
+    Matrix,
+    xgboost (>= 1.7.0)
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(

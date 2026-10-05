@@ -1,0 +1,75 @@
+#' Burgle an XGBoost model
+#'
+#' Stores the fitted booster as a portable UBJSON model buffer, without its
+#' training data, evaluation log, callbacks, or call. Predictions are delegated
+#' to XGBoost, retaining its output shapes and prediction options.
+#'
+#' @param object A fitted \code{xgb.Booster} or \code{xgboost} model.
+#' @param ... For \code{burgle}, unused. For \code{predict}, arguments passed to
+#'   the original XGBoost prediction method.
+#' @param newdata Input accepted by the original XGBoost prediction method.
+#'   Preprocessing and column order must match training.
+#'
+#' @details
+#' Requires the optional \pkg{xgboost} package (version 1.7.0 or later).
+#' Both \code{xgb.train} boosters and \code{xgboost} models are supported.
+#' On XGBoost 3.x, the high-level model's response labels and prediction
+#' metadata are retained. Early-stopping information is stored in the model.
+#' No parameter-uncertainty draws or response simulations are provided.
+#' Model buffers do not contain the training matrix, but fitted trees,
+#' feature names, and response labels can still contain sensitive information.
+#'
+#' @return \code{burgle} returns a \code{burgle_xgboost} object.
+#'   \code{predict} returns the same predictions as the original model.
+#' @name burgle_xgboost
+#' @export
+burgle.xgb.Booster <- function(object, ...){
+  if (!requireNamespace("xgboost", quietly = TRUE)) {
+    stop("Package 'xgboost' is required to burgle XGBoost models.")
+  }
+
+  metadata <- list()
+  if (is.list(object)) {
+    metadata <- object[intersect(c("feature_names", "params"), names(object))]
+  } else {
+    metadata <- attributes(object)[intersect(c("metadata", "params"),
+                                             names(attributes(object)))]
+  }
+
+  l <- list(raw = xgboost::xgb.save.raw(object, raw_format = "ubj"),
+            metadata = metadata,
+            model_class = if (inherits(object, "xgboost")) "xgboost" else "xgb.Booster")
+  class(l) <- "burgle_xgboost"
+  l
+}
+
+#' @rdname burgle_xgboost
+#' @export
+burgle.xgboost <- function(object, ...){
+  burgle.xgb.Booster(object, ...)
+}
+
+#' @rdname burgle_xgboost
+#' @export
+predict.burgle_xgboost <- function(object, newdata, ...){
+  if (!requireNamespace("xgboost", quietly = TRUE)) {
+    stop("Package 'xgboost' is required to predict from burgled XGBoost models.")
+  }
+
+  loader <- xgboost::xgb.load.raw
+  model <- if ("as_booster" %in% names(formals(loader))) {
+    loader(object$raw, as_booster = TRUE)
+  } else {
+    loader(object$raw)
+  }
+  if (is.list(model)) {
+    for (nm in names(object$metadata)) model[[nm]] <- object$metadata[[nm]]
+  } else {
+    for (nm in names(object$metadata)) attr(model, nm) <- object$metadata[[nm]]
+  }
+  if (object$model_class == "xgboost") {
+    class(model) <- c("xgboost", "xgb.Booster")
+  }
+
+  stats::predict(model, newdata = newdata, ...)
+}

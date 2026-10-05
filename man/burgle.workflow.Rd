@@ -13,16 +13,16 @@
 \method{predict_time}{burgle_workflow}(object, newdata, ...)
 }
 \arguments{
-\item{object}{A fitted `workflows::workflow()` with a recipe preprocessor.}
+\item{object}{A fitted \code{workflows::workflow()} with a recipe preprocessor.}
 
-\item{...}{Arguments passed to the underlying engine's `burgle()` method.}
+\item{...}{Arguments passed to the underlying engine's \code{burgle()} method.}
 
 \item{newdata}{A data frame of raw predictors, plus externally supplied
 inputs required by omitted preprocessing.}
 }
 \value{
-A `burgle_workflow` containing a burgled model and compact trained
-  preprocessing metadata, not the original workflow or recipe.
+A \code{burgle_workflow} containing a burgled model and compact trained
+preprocessing metadata, not the original workflow or recipe.
 }
 \description{
 Compile a trained recipe and burgle the fitted engine using its existing
@@ -30,9 +30,36 @@ method. Prediction evaluates the compiled transformations, then dispatches
 to the engine's burgled prediction method, with all arguments unchanged.
 }
 \details{
-Supported engines are `lm`, `glm`, `multinom`, `coxph`, `cph`,
-`flexsurvreg`, `CauseSpecificCox`, and `rfsrc`. Engine availability in
+Supported engines are \code{lm}, \code{glm}, \code{multinom}, \code{coxph}, \code{cph},
+\code{flexsurvreg}, \code{CauseSpecificCox}, and \code{rfsrc}. Engine availability in
 tidymodels is separate from burgle support; see the workflow documentation.
+
+Compiled recipes steps are \code{step_poly()}, \code{step_ns()}, \code{step_bs()},
+\code{step_interact()}, \code{step_spline_b()}, \code{step_spline_natural()},
+\code{step_harmonic()}, \code{step_poly_bernstein()}, \code{step_spline_monotone()},
+\code{step_spline_convex()}, \code{step_spline_nonnegative()}, \code{step_log()},
+\code{step_sqrt()}, \code{step_inverse()}, \code{step_invlogit()}, \code{step_logit()},
+\code{step_ratio()}, and \code{step_lag()}. The package also supplies \code{\link[=step_abs]{step_abs()}}
+as a recipes extension. Basis parameters are learned at preparation time,
+not recomputed from prediction data. The compiler preserves execution order,
+column selections, names and original-column retention.
+
+Workflow extraction needs workflows and recipes. Prediction does not:
+splines2 bases require splines2, and lags require dplyr; other operations use
+base R, stats or splines. Underlying model runtime dependencies still apply.
+Serialize the result with \code{saveRDS()} and restore it with \code{readRDS()}.
+
+Model-specific prediction arguments and outputs are not translated into
+parsnip conventions. For example, burgle GLM \code{type = "link"} returns
+inverse-link values, whereas binomial \code{type = "response"} samples outcomes.
+Aliased coefficients, missing rows and novel levels follow the underlying
+burgled model contract. Fitted terms and all parameter structures are kept
+in their original order rather than inferred from a new design matrix.
+Default nnet fits have their Hessian reconstructed transiently from trained
+predictors. Fits collapsing rows with \code{summ} need \code{Hess = TRUE} at fitting.
+Recipes does not retain global interaction contrast options: keep those
+options unchanged between fitting and burgling. Compiled contrasts are
+numeric matrices and do not depend on subsequent global option changes.
 
 Formula and variable preprocessors, matrix recipe blueprints, and workflow
 postprocessors are not supported. Use a recipe (possibly with zero steps)

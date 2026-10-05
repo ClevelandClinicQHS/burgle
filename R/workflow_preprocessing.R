@@ -48,6 +48,13 @@ compile_workflow_recipe <- function(recipe) {
   input_names <- unique(info$variable)
   current <- input_names
   roles <- setNames(as.character(info$role), info$variable)
+  input_levels <- workflow_recipe_levels(recipe$orig_lvls)
+  for (column in names(input_levels)) {
+    if (!isTRUE(recipe$orig_lvls[[column]]$factor) &&
+        (is.null(recipe$levels) || !any(roles[names(roles) == column] %in% c("predictor", "outcome")))) {
+      input_levels[[column]] <- NULL
+    }
+  }
   prototype <- recipe$ptype
   if (is.null(prototype)) prototype <- list()
   for (column in input_names) {
@@ -59,22 +66,28 @@ compile_workflow_recipe <- function(recipe) {
   }
   ops <- list()
 
-  for (step in recipe$steps) {
-    if (isTRUE(step$skip)) next
+  for (position in seq_along(recipe$steps)) {
+    step <- recipe$steps[[position]]
     type <- sub("^step_", "", class(step)[1L])
     if (!type %in% supported) {
       warning("Unsupported recipe step '", class(step)[1L],
-              "' is being skipped; predictions may differ from the workflow.",
+              "' at position ", position, " (id: ",
+              if (is.null(step$id)) "<none>" else step$id,
+              ") is being omitted",
+              if (isTRUE(step$skip)) " (skip = TRUE)" else "",
+              "; predictions may differ from the workflow.",
               call. = FALSE)
       next
     }
+    if (isTRUE(step$skip)) next
     if (!isTRUE(step$trained)) {
       stop("Recipe step '", class(step)[1L],
            "' is not trained. Fit the workflow or prep() the recipe first.",
            call. = FALSE)
     }
-    op <- list(type = type, inputs = character(), outputs = character(),
-               remove = character())
+    op <- list(type = type, position = position,
+               id = if (is.null(step$id)) "<none>" else step$id,
+               inputs = character(), outputs = character(), remove = character())
     if (type %in% c("poly", "ns", "bs")) {
       op$inputs <- names(step$objects)
       op$basis <- lapply(step$objects, workflow_recipe_basis, kind = type)
@@ -137,22 +150,42 @@ compile_workflow_recipe <- function(recipe) {
         op$inputs <- unique(unlist(lapply(objects, all.vars), use.names = FALSE))
         op$sep <- step$sep
         ## Construct a single synthetic row solely to resolve factor expansion.
-        fake <- setNames(lapply(current, function(column) {
+        interaction_inputs <- union(current, op$inputs)
+        fake <- setNames(lapply(interaction_inputs, function(column) {
           value <- prototype[[column]]
+          if (is.null(value)) {
+            ## Omitted producers may supply an interaction input externally.
+            ## Read only its trained type/levels, never its training values.
+            value <- recipe$template[[column]][0]
+            nominal <- recipe$levels[[column]]
+            if (!is.null(nominal$factor)) {
+              value <- factor(character(), levels = nominal$values,
+                              ordered = isTRUE(nominal$ordered))
+            }
+          }
           if (is.factor(value)) {
             ans <- factor(levels(value)[1L], levels = levels(value),
                           ordered = is.ordered(value))
             attr(ans, "contrasts") <- attr(value, "contrasts")
             ans
           } else 0
-        }), current)
+        }), interaction_inputs)
         fake <- as.data.frame(fake, check.names = FALSE)
         op$contrasts <- list()
         op$names <- list()
         for (i in seq_along(op$formulas)) {
           formula <- stats::as.formula(op$formulas[[i]], env = baseenv())
-          matrix <- stats::model.matrix(formula, fake)
-          op$contrasts[i] <- list(attr(matrix, "contrasts"))
+          contrasts <- attr(objects[[i]], "contrasts")
+          matrix <- stats::model.matrix(formula, fake, contrasts.arg = contrasts)
+          contrasts <- attr(matrix, "contrasts")
+          if (length(contrasts)) {
+            for (column in names(contrasts)) {
+              value <- fake[[column]]
+              stats::contrasts(value) <- contrasts[[column]]
+              contrasts[[column]] <- stats::contrasts(value)
+            }
+          }
+          op$contrasts[i] <- list(contrasts)
           op$names[[i]] <- gsub(":", op$sep, colnames(matrix)[grepl(":", colnames(matrix))])
         }
         op$outputs <- unlist(op$names, use.names = FALSE)
@@ -168,7 +201,11 @@ compile_workflow_recipe <- function(recipe) {
       }
       if (type %in% c("inverse", "logit")) op$offset <- step$offset
     }
-    if (length(op$outputs) && !isTRUE(step$keep_original_cols)) op$remove <- op$inputs
+    keep <- if (is.null(step$keep_original_cols)) {
+      ## Before recipes 1.0.7 these two steps always retained their inputs.
+      type %in% c("interact", "lag")
+    } else isTRUE(step$keep_original_cols)
+    if (length(op$outputs) && !keep) op$remove <- op$inputs
     for (i in seq_along(op$outputs)) {
       prototype[[op$outputs[i]]] <- if (type == "lag") {
         prototype[[op$inputs[ceiling(i / length(op$lag))]]]
@@ -185,7 +222,8 @@ compile_workflow_recipe <- function(recipe) {
   list(
     ops = ops,
     input = list(names = input_names,
-                 predictors = unique(info$variable[info$role %in% "predictor"])),
+                 predictors = unique(info$variable[info$role %in% "predictor"]),
+                 levels = input_levels),
     output = list(names = current, predictors = names(roles)[roles %in% "predictor"],
                   levels = workflow_recipe_levels(recipe$levels, recipe$template))
   )
@@ -205,6 +243,22 @@ workflow_recipe_append <- function(data, columns, op) {
   data[, !names(data) %in% op$remove, drop = FALSE]
 }
 
+workflow_recipe_normalize_levels <- function(data, levels) {
+  for (column in intersect(names(levels), names(data))) {
+    info <- levels[[column]]
+    values <- as.character(data[[column]])
+    novel <- unique(values[!is.na(values) & !values %in% info$values])
+    if (length(novel)) {
+      stop("Unknown factor levels in column '", column, "': ",
+           paste(novel, collapse = ", "),
+           ". Supply levels observed in training.", call. = FALSE)
+    }
+    data[[column]] <- factor(values, levels = info$values,
+                             ordered = info$ordered, exclude = NULL)
+  }
+  data
+}
+
 eval_workflow_recipe <- function(compiled, newdata) {
   if (!is.data.frame(newdata)) {
     stop("'newdata' must be a data.frame.", call. = FALSE)
@@ -215,11 +269,15 @@ eval_workflow_recipe <- function(compiled, newdata) {
   order <- c(intersect(compiled$input$names, names(data)),
              setdiff(names(data), compiled$input$names))
   data <- data[, order, drop = FALSE]
+  data <- workflow_recipe_normalize_levels(data, compiled$input$levels)
   for (op in compiled$ops) {
     missing <- setdiff(op$inputs, names(data))
     if (length(missing)) {
       stop("Missing columns for recipe step 'step_", op$type, "': ",
-           paste(missing, collapse = ", "), ".", call. = FALSE)
+           paste(missing, collapse = ", "), " (position ", op$position,
+           ", id: ", op$id, "). Supply the raw or externally preprocessed ",
+           "columns; an earlier unsupported or skip = TRUE step may have been omitted.",
+           call. = FALSE)
     }
     type <- op$type
     columns <- list()
@@ -318,10 +376,5 @@ eval_workflow_recipe <- function(compiled, newdata) {
     }
     data <- workflow_recipe_append(data, columns, op)
   }
-  for (column in intersect(names(compiled$output$levels), names(data))) {
-    info <- compiled$output$levels[[column]]
-    data[[column]] <- factor(as.character(data[[column]]), levels = info$values,
-                             ordered = info$ordered, exclude = NULL)
-  }
-  data
+  workflow_recipe_normalize_levels(data, compiled$output$levels)
 }

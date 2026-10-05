@@ -33,7 +33,7 @@ devtools::install_github("ClevelandClinicQHS/burgle")
 ## Fitted workflows
 
 `burgle()` accepts fitted tidymodels workflows with a trained recipe and a
-data-frame/tibble blueprint. It compiles preprocessing into ordered operations
+data-frame/tibble blueprint (R 4.1 or newer). It compiles preprocessing into ordered operations
 containing trained parameters, then calls the fitted engine's existing
 `burgle()` method. Prediction transforms new predictors before dispatching to
 that burgled engine. The returned object retains neither a workflow nor a recipe
@@ -50,11 +50,12 @@ and never calls `recipes::bake()` during prediction.
 | `cph` | coefficients, covariance, terms, levels, contrasts, baseline hazards | no built-in parsnip/censored adapter; existing Cox prediction contract |
 | `flexsurvreg` | distribution parameters and indices, covariance, terms, levels, contrasts, distribution functions/transforms, event times | censored `survival_reg(engine = "flexsurv")`; existing `lp`, risk/response/time, draws, simulations, seed, `predict_time()` |
 | `CauseSpecificCox` | per-cause coefficients/covariances, terms, levels, contrasts, hazards and event times | no built-in adapter; `lp`, risk/response, cause, times, draws, simulations, `predict_time()` |
-| `rfsrc` | burgled native forest and its prediction metadata, not GLM coefficients | no built-in parsnip/censored adapter; regression/classification/survival/competing-risk modes, risk/response, simulations, cause, times and engine arguments |
+| `rfsrc` | burgled native forest and its prediction metadata, not GLM coefficients | upstream censored 0.3.5.9000 registers a survival `rand_forest(engine = "randomForestSRC")` adapter (0.3.1 does not); regression/classification/survival/competing-risk modes, risk/response, simulations, cause, times and engine arguments |
 
 An adapter must produce one of these fitted classes; no unsupported engine is
 made supported by wrapping it in a workflow. Engines without a built-in adapter
-are tested by composing their actual burgled models with compiled preprocessing.
+in the installed tidymodels version are tested by composing their actual
+burgled models with compiled preprocessing.
 There is no XGBoost method in this version of burgle.
 
 The wrapper does **not** translate prediction argument meanings or return
@@ -65,6 +66,10 @@ existing engine method. Fitted terms, contrasts, coefficient order and every
 model-specific covariance/parameter structure remain unchanged: transformations
 reproduce the trained predictor columns rather than replacing the engine's
 design matrix with a newly inferred one.
+For default nnet fits without a stored Hessian, extraction computes nnet's
+Hessian from the trained mold and fitted probabilities before delegating to
+`burgle.multinom()`; those training predictors are not retained. Fits that
+collapse training rows with `summ` must supply `Hess = TRUE` when fitted.
 
 ### Step and runtime-dependency inventory
 
@@ -144,6 +149,16 @@ limitations. Formula/variable workflow preprocessors, matrix blueprints and
 workflow postprocessors are explicitly rejected; use a zero-step recipe for
 ordinary predictors. Empty and single-row batches remain subject to the
 underlying model's supported prediction contract.
+Recipes 1.0.9 does not record the global factor-contrast options used by
+`step_interact()`: do not change those options between fitting and burgling.
+Compilation resolves numeric contrast matrices so later option changes do not
+alter the compiled interactions.
+Unseen factor values are rejected explicitly rather than silently cast to NA;
+this is stricter than native forest workflows that impute unknown levels.
+The tested upstream censored 0.3.5.9000 forest adapter fits correctly but its
+survival-probability helper references a missing `check_data_frame()` function.
+Forest workflow tests therefore compare the fitted engine directly; the
+upstream workflow survival oracle is skipped only for that specific defect.
 ## Linear Model Example
 
 ``` r

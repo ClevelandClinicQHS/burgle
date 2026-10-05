@@ -76,20 +76,34 @@ test_that("scalar transforms preserve trained columns and link edge behavior", {
   expect_recipe_compiler_bake(link, data)
 })
 
-test_that("abs compiles a trained scalar step without retaining selectors", {
+test_that("burgle-owned abs step matches bake and preserves base abs semantics", {
   skip_if_not_installed("recipes")
-  rec <- recipes::prep(recipes::recipe(y ~ ., data = recipe_compiler_data()))
-  ## Neither recipes nor extrasteps exports step_abs; support its trained schema.
-  rec$steps <- list(structure(
-    list(trained = TRUE, skip = FALSE, columns = c(x = "x")),
-    class = c("step_abs", "step")
-  ))
-  data <- recipe_compiler_data()[1:4, ]
-  data$x <- c(-1, 0, NA, -Inf)
-  expected <- data
-  expected$x <- abs(expected$x)
-  expected <- expected[, rec$var_info$variable]
-  expect_equal(eval_workflow_recipe(compile_workflow_recipe(rec), data), expected)
+  rec <- recipes::recipe(y ~ ., data = recipe_compiler_data()) |>
+    step_abs(x, z) |>
+    recipes::prep()
+  data <- recipe_compiler_data()[1:7, ]
+  data$x <- c(-1, 0, NA, -Inf, Inf, NaN, -0)
+  data$z <- c(-2L, 0L, NA_integer_, 1L, -3L, 4L, 5L)
+  expect_recipe_compiler_bake(rec, data)
+  expect_recipe_compiler_bake(rec, data[1, , drop = FALSE])
+  expect_recipe_compiler_bake(rec, data[0, , drop = FALSE])
+  observed <- eval_workflow_recipe(compile_workflow_recipe(rec), data)
+  expect_identical(observed$x, abs(data$x))
+  expect_identical(observed$z, abs(data$z))
+  expect_equal(recipes::tidy(rec, number = 1)$terms, c("x", "z"))
+  expect_invisible(print(rec$steps[[1]]))
+  expect_error(
+    recipes::prep(step_abs(recipes::recipe(y ~ ., data = recipe_compiler_data()), f)),
+    "factor|numeric|double|integer"
+  )
+  skipped <- recipes::recipe(y ~ x, data = recipe_compiler_data()) |>
+    step_abs(x, skip = TRUE) |>
+    recipes::prep()
+  expect_recipe_compiler_bake(skipped, data[, c("y", "x")])
+  empty <- recipes::recipe(y ~ x, data = recipe_compiler_data()) |>
+    step_abs(recipes::all_nominal_predictors()) |>
+    recipes::prep()
+  expect_recipe_compiler_bake(empty, data[, c("y", "x")])
 })
 
 test_that("polynomial and base spline bases reuse trained parameters exactly", {
@@ -283,9 +297,94 @@ test_that("ordered operations, empty selectors, skipped steps, and metadata are 
     recipes::step_center(x) |>
     recipes::prep()
   expect_warning(compiled <- compile_workflow_recipe(rec), "Unsupported recipe step 'step_center'")
+  expect_identical(compiled$ops, list())
+  expect_warning(compile_workflow_recipe(rec), paste0("position 1.*", rec$steps[[1]]$id))
   expect_equal(eval_workflow_recipe(compiled, data.frame(x = 1)), data.frame(x = 1))
   rec$steps[[1]]$skip <- TRUE
+  expect_warning(compile_workflow_recipe(rec), "position 1.*skip = TRUE")
+  rec <- recipe_compiler_step("poly")
+  rec$steps[[1]]$skip <- TRUE
   expect_warning(compile_workflow_recipe(rec), NA)
+})
+
+test_that("legacy lag and interaction steps retain their original columns", {
+  skip_if_not_installed("recipes")
+  rec <- recipe_compiler_step("lag", lag = c(1, 2))
+  data <- recipe_compiler_data()[1:4, ]
+  expected <- as.data.frame(recipes::bake(rec, data))
+  rec$steps[[1]]$keep_original_cols <- NULL
+  expect_equal(eval_workflow_recipe(compile_workflow_recipe(rec), data), expected)
+  rec <- recipes::recipe(y ~ x + z, data = recipe_compiler_data()) |>
+    recipes::step_interact(terms = ~ x:z) |>
+    recipes::prep()
+  data <- data[, c("y", "x", "z")]
+  expected <- as.data.frame(recipes::bake(rec, data))
+  rec$steps[[1]]$keep_original_cols <- NULL
+  expect_equal(eval_workflow_recipe(compile_workflow_recipe(rec), data), expected)
+})
+
+test_that("captured interaction contrast matrices survive changed global options", {
+  skip_if_not_installed("recipes")
+  rec <- suppressWarnings(
+    recipes::recipe(y ~ x + f + ordered, data = recipe_compiler_data()) |>
+      recipes::step_interact(terms = ~ x:f + x:ordered) |>
+      recipes::prep()
+  )
+  data <- recipe_compiler_data()[1:4, c("y", "x", "f", "ordered")]
+  expected <- as.data.frame(recipes::bake(rec, data))
+  compiled <- compile_workflow_recipe(rec)
+  expect_true(all(vapply(compiled$ops[[1]]$contrasts[[1]], is.matrix, logical(1))))
+  old <- getOption("contrasts")
+  options(contrasts = c("contr.sum", "contr.helmert"))
+  tryCatch(
+    expect_equal(eval_workflow_recipe(compiled, data), expected),
+    finally = options(contrasts = old)
+  )
+})
+
+test_that("skipped producers require externally supplied inputs only when consumed", {
+  skip_if_not_installed("recipes")
+  rec <- recipes::recipe(y ~ x, data = recipe_compiler_data()) |>
+    recipes::step_poly(x, skip = TRUE) |>
+    recipes::step_log(x_poly_1, offset = 10) |>
+    recipes::step_lag(x_poly_1, skip = TRUE) |>
+    recipes::prep()
+  compiled <- compile_workflow_recipe(rec)
+  expect_identical(vapply(compiled$ops, `[[`, "", "type"), "log")
+  expect_error(eval_workflow_recipe(compiled, data.frame(x = 0.5)),
+               "position 2.*Supply.*externally.*skip = TRUE")
+  expect_equal(eval_workflow_recipe(compiled, data.frame(x = 0.5, x_poly_1 = 1)),
+               data.frame(x = 0.5, x_poly_1 = log(11)))
+})
+
+test_that("interactions compile with externally supplied omitted-producer inputs", {
+  skip_if_not_installed("recipes")
+  data <- recipe_compiler_data()
+  rec <- recipes::recipe(y ~ x + z + f, data = data) |>
+    recipes::step_mutate(double_x = 2 * x, copied_f = f) |>
+    recipes::step_interact(terms = ~ double_x:z + x:copied_f)
+  rec <- suppressWarnings(recipes::prep(rec))
+  expect_warning(compiled <- compile_workflow_recipe(rec),
+                 "Unsupported.*step_mutate.*position 1")
+  newdata <- data[1:4, c("y", "x", "z", "f")]
+  expect_error(eval_workflow_recipe(compiled, newdata),
+               "step_interact.*double_x.*copied_f.*position 2.*externally")
+  newdata$double_x <- 2 * newdata$x
+  newdata$copied_f <- newdata$f
+  expected <- as.data.frame(recipes::bake(rec, newdata))
+  expect_equal(eval_workflow_recipe(compiled, newdata), expected)
+  expect_true(all(grepl("copied_f", compiled$ops[[1]]$names[[2]])))
+  rec <- recipes::recipe(y ~ x + z, data = data) |>
+    recipes::step_rename(feature = x) |>
+    recipes::step_interact(terms = ~ feature:z) |>
+    recipes::prep()
+  expect_warning(compiled <- compile_workflow_recipe(rec),
+                 "Unsupported.*step_rename.*position 1")
+  newdata <- data[1:4, c("y", "x", "z")]
+  newdata$feature <- newdata$x
+  expected <- as.data.frame(recipes::bake(rec, newdata))
+  actual <- eval_workflow_recipe(compiled, newdata)
+  expect_equal(actual[, names(expected)], expected)
 })
 
 test_that("compiler errors identify missing columns, collisions, and untrained steps", {
@@ -304,6 +403,16 @@ test_that("compiler errors identify missing columns, collisions, and untrained s
   expect_error(compile_workflow_recipe(rec), "not trained.*prep")
   expect_error(workflow_recipe_dependency("burgle.recipe.compiler.missing", "step_spline_b"),
                "step_spline_b.*install.packages")
+  rec <- recipes::recipe(y ~ f, data = recipe_compiler_data()) |>
+    recipes::prep()
+  compiled <- compile_workflow_recipe(rec)
+  expect_error(eval_workflow_recipe(compiled, data.frame(f = "novel")),
+               "Unknown factor levels.*f.*novel")
+  expect_error(eval_workflow_recipe(compiled, data.frame(f = factor("novel"))),
+               "Unknown factor levels.*f.*novel")
+  expected <- data.frame(f = factor(c("a", NA), levels = c("a", "b", "c")))
+  expect_equal(eval_workflow_recipe(compiled, data.frame(f = c("a", NA))), expected)
+  expect_equal(nrow(eval_workflow_recipe(compiled, data.frame(f = c("a", NA)))), 2L)
 })
 
 test_that("prediction neither bakes recipes nor retains training-sized bases", {
@@ -319,4 +428,169 @@ test_that("prediction neither bakes recipes nor retains training-sized bases", {
   expect_equal(eval_workflow_recipe(compiled, data), expected)
   expect_true(is.null(compiled$ops[[1]]$basis$x$x))
   expect_false(any(c("terms", "objects", "template", "recipe") %in% names(compiled)))
+})
+
+test_that("a fitted workflow using burgle::step_abs preserves engine predictions", {
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+  skip_if_not_installed("parsnip")
+  data <- recipe_compiler_data()
+  data$x <- seq(-2, 2, length.out = nrow(data))
+  data$z <- rep(c(-1, 2, -3, 4), 10)
+  data$y <- 2 + 3 * abs(data$x) - abs(data$z) + sin(seq_len(nrow(data))) / 10
+  rec <- recipes::recipe(y ~ x + z, data = data) |>
+    burgle::step_abs(x, z) |>
+    recipes::step_poly(x, degree = 2)
+  model <- parsnip::linear_reg() |>
+    parsnip::set_engine("lm")
+  workflow <- workflows::workflow() |>
+    workflows::add_recipe(rec) |>
+    workflows::add_model(model) |>
+    parsnip::fit(data = data)
+  compact <- burgle(workflow)
+  newdata <- data[c(3, 1, 20, 40), c("x", "z")]
+  expected <- predict(workflow, new_data = newdata)$.pred
+  observed <- predict(compact, newdata = newdata, original = TRUE, type = "lp")
+  expect_equal(as.numeric(observed), expected, tolerance = 1e-10)
+  expect_identical(vapply(compact$preprocessing$ops, `[[`, "", "type"), c("abs", "poly"))
+})
+
+test_that("every supported recipes step preserves fitted workflow predictions", {
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("splines2")
+  skip_if_not_installed("dplyr")
+  i <- seq_len(80)
+  data <- data.frame(
+    x = stats::plogis(2 * sin(i * sqrt(2)) + cos(i * sqrt(3))),
+    z = stats::plogis(sin(i * sqrt(5)) + cos(i * sqrt(7)))
+  )
+  data$y <- 1 + 2 * data$x^2 - data$z + sin(i) / 10
+  configs <- list(
+    poly = list(degree = 3, options = list(raw = TRUE)),
+    ns = list(options = list(knots = c(0.3, 0.6), Boundary.knots = c(0, 1))),
+    bs = list(degree = 2, options = list(knots = c(0.3, 0.6),
+                                       Boundary.knots = c(0, 1))),
+    interact = list(terms = ~ x:z, sep = "__", keep_original_cols = TRUE),
+    spline_b = list(deg_free = 5, degree = 2, complete_set = FALSE,
+                    options = list(Boundary.knots = c(0, 1))),
+    spline_natural = list(deg_free = 5, complete_set = FALSE,
+                          options = list(Boundary.knots = c(0, 1))),
+    harmonic = list(frequency = c(1, 2), cycle_size = 2, starting_val = 0.2),
+    poly_bernstein = list(degree = 4, complete_set = FALSE, role = "predictor",
+                          options = list(Boundary.knots = c(0, 1))),
+    spline_monotone = list(deg_free = 5, degree = 2, complete_set = FALSE,
+                           options = list(Boundary.knots = c(0, 1))),
+    spline_convex = list(deg_free = 5, degree = 2, complete_set = FALSE,
+                         options = list(Boundary.knots = c(0, 1))),
+    spline_nonnegative = list(deg_free = 5, degree = 2, complete_set = FALSE,
+                              options = list(Boundary.knots = c(0, 1))),
+    log = list(base = 10, offset = 1),
+    sqrt = list(),
+    inverse = list(offset = 0.4),
+    invlogit = list(),
+    logit = list(offset = 0.01),
+    ratio = list(denom = recipes::denom_vars(z), keep_original_cols = TRUE,
+                 naming = function(top, bottom) paste0(top, "__over__", bottom)),
+    lag = list(lag = c(1, 2), default = 0.2, prefix = "previous_",
+               keep_original_cols = TRUE)
+  )
+  expect_length(configs, 18L)
+  for (type in names(configs)) {
+    rec <- recipes::recipe(y ~ x + z, data = data)
+    columns <- if (type == "interact") list() else list(quote(x))
+    rec <- do.call(getExportedValue("recipes", paste0("step_", type)),
+                   c(list(rec), columns, configs[[type]]))
+    model <- parsnip::linear_reg() |>
+      parsnip::set_engine("lm")
+    workflow <- workflows::workflow() |>
+      workflows::add_recipe(rec) |>
+      workflows::add_model(model) |>
+      parsnip::fit(data = data)
+    compact <- burgle(workflow)
+    expect_identical(compact$preprocessing$ops[[1]]$type, type)
+    expect_false(anyNA(compact$model$coef))
+    newdata <- data[c(9, 1, 60, 4, 80), c("z", "x")]
+    expected <- predict(workflow, new_data = newdata)$.pred
+    observed <- predict(compact, newdata = newdata, original = TRUE, type = "lp")
+    expect_equal(as.numeric(observed), expected, tolerance = 1e-8, info = type)
+    one <- newdata[1, , drop = FALSE]
+    expect_equal(as.numeric(predict(compact, newdata = one, original = TRUE, type = "lp")),
+                 predict(workflow, new_data = one)$.pred,
+                 tolerance = 1e-8, info = type)
+  }
+})
+
+test_that("zero-step workflow prediction rejects novel factors before engine row loss", {
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+  skip_if_not_installed("parsnip")
+  data <- recipe_compiler_data()
+  model <- parsnip::linear_reg() |>
+    parsnip::set_engine("lm")
+  workflow <- workflows::workflow() |>
+    workflows::add_recipe(recipes::recipe(y ~ f, data = data)) |>
+    workflows::add_model(model) |>
+    parsnip::fit(data = data)
+  compact <- burgle(workflow)
+  expect_error(predict(compact, newdata = data.frame(f = factor(rep("novel", 3)))),
+               "Unknown factor levels.*f.*novel")
+  expect_error(predict(compact, newdata = data.frame(f = rep("novel", 3))),
+               "Unknown factor levels.*f.*novel")
+})
+
+test_that("raw nominal inputs normalize to trained levels before interactions and lags", {
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+  skip_if_not_installed("parsnip")
+  data <- recipe_compiler_data()
+  data$y <- 2 * data$x^2 + sin(seq_len(nrow(data))) / 10
+  data$ordered <- ordered(rep(c("low", "mid", "high"), length.out = nrow(data)),
+                          levels = c("low", "mid", "high"))
+  spec <- recipes::recipe(y ~ x + f + ordered, data = data) |>
+    recipes::step_interact(terms = ~ x:f + x:ordered)
+  rec <- suppressWarnings(recipes::prep(spec))
+  compiled <- compile_workflow_recipe(rec)
+  model <- parsnip::linear_reg() |>
+    parsnip::set_engine("lm")
+  workflow <- suppressWarnings(
+    workflows::workflow() |>
+      workflows::add_recipe(spec) |>
+      workflows::add_model(model) |>
+      parsnip::fit(data = data)
+  )
+  compact <- burgle(workflow)
+  expect_false(anyNA(compact$model$coef))
+  variants <- list(
+    c("c", "a", "c"),
+    factor(c("c", "a", "c"), levels = c("c", "b", "a")),
+    factor(rep("a", 3)),
+    droplevels(factor(c("a", "c", "a"), levels = c("a", "b", "c")))
+  )
+  for (f in variants) {
+    newdata <- data[1:3, c("y", "x", "f", "ordered")]
+    newdata$f <- f
+    newdata$ordered <- c("high", "low", "high")
+    normalized <- newdata
+    normalized$f <- factor(as.character(f), levels = levels(data$f))
+    normalized$ordered <- ordered(newdata$ordered, levels = levels(data$ordered))
+    ## Hardhat restores trained levels before recipe steps. Direct bake on
+    ## old recipes versions needs the same normalized input for this oracle.
+    expected <- as.data.frame(recipes::bake(rec, normalized))
+    expect_equal(eval_workflow_recipe(compiled, newdata), expected)
+    expected <- predict(workflow, new_data = newdata)$.pred
+    expect_equal(as.numeric(predict(compact, newdata, original = TRUE, type = "lp")),
+                 expected, tolerance = 1e-8)
+  }
+  lag <- recipe_compiler_step("lag", columns = "f", lag = 1)
+  newdata <- data[1:3, ]
+  newdata$f <- factor(rep("a", 3))
+  actual <- eval_workflow_recipe(compile_workflow_recipe(lag), newdata)
+  expect_identical(levels(actual$lag_1_f), levels(data$f))
+  newdata$f <- "novel"
+  expect_error(eval_workflow_recipe(compiled, newdata), "Unknown factor levels.*f")
+  chars <- data.frame(x = c("a", "b", "a"), y = 1:3)
+  rec <- recipes::prep(recipes::recipe(y ~ x, data = chars), strings_as_factors = FALSE)
+  expect_recipe_compiler_bake(rec, chars)
 })

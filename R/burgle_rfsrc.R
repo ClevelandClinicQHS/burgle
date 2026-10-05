@@ -56,7 +56,9 @@ predict.burgle_rfsrc <- function(object, newdata = NULL, type = "risk", sims = 1
   #   importance = FALSE
   # }
   attr(object, "class") <- attr(object, "class")[-1]
-  op1 <- stats::predict(object, newdata = newdata, importance = F, outcome = "test", ...)
+  ## Workflows supply predictors only; test outcomes are optional for prediction.
+  outcome <- if (all(object$yvar.names %in% names(newdata))) "test" else "train"
+  op1 <- stats::predict(object, newdata = newdata, importance = F, outcome = outcome, ...)
 
   class3 <- class(op1)[3]
 

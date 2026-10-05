@@ -28,9 +28,15 @@ Suggests:
     parsnip (>= 1.2.1),
     censored (>= 0.3.1),
     splines2 (>= 0.5.1),
-    dplyr (>= 1.1.0)
+    dplyr (>= 1.1.0),
+    rlang,
+    tibble,
+    hardhat,
+    generics,
+    withr,
+    pkgload
 Depends: 
-    R (>= 4.0.0)
+    R (>= 4.1.0)
 Authors@R: c(
     person(given = "Paul R.", "Gunsalus",, email =  "gunsalp@ccf.org", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-6976-9094")),

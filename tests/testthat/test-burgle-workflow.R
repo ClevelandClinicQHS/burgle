@@ -167,3 +167,38 @@ test_that("burgle.workflow warns and skips unsupported recipe steps", {
   expect_s3_class(bfit, "burgle_glm")
   expect_s3_class(bfit$terms, "terms")
 })
+
+test_that("burgle.workflow handles already response-free burgle terms", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  set.seed(303)
+  dat <- data.frame(
+    y = stats::rnorm(60),
+    x1 = stats::runif(60, 0.2, 2),
+    x2 = stats::runif(60, 0.2, 2),
+    z = stats::rnorm(60)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2 + z, data = dat) |>
+        recipes::step_mutate(z2 = z * 2) |>
+        recipes::step_ns(x1, deg_free = 3) |>
+        recipes::step_bs(x2, deg_free = 4, degree = 2)
+    ) |>
+    workflows::add_model(
+      parsnip::linear_reg() |>
+        parsnip::set_engine("lm")
+    ) |>
+    workflows::fit(data = dat)
+
+  expect_warning(
+    bfit <- burgle(wf),
+    "Unsupported recipe step\\(s\\) were skipped"
+  )
+
+  expect_s3_class(bfit, "burgle_lm")
+  expect_s3_class(bfit$terms, "terms")
+})

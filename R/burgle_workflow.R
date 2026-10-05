@@ -54,8 +54,7 @@ burgle.workflow <- function(object, ...) {
     stop("The workflow must contain at least one step_bs() or step_ns() step.")
   }
 
-  old_terms <- stats::delete.response(burgled$terms)
-  attr(old_terms, ".Environment") <- baseenv()
+  old_terms <- workflow_terms_without_response(burgled$terms)
   old_labels <- attr(old_terms, "term.labels")
 
   if (any(attr(old_terms, "order") > 1L)) {
@@ -183,6 +182,27 @@ workflow_require_namespace <- function(pkg) {
 
 workflow_namespace_function <- function(pkg, fun) {
   getExportedValue(pkg, fun)
+}
+
+workflow_terms_without_response <- function(terms) {
+  if (is.null(terms)) {
+    stop("The burgled fitted engine does not contain a usable `terms` object.")
+  }
+
+  if (!inherits(terms, "terms")) {
+    stop("The burgled fitted engine does not contain a usable `terms` object.")
+  }
+
+  if (!is.null(attr(terms, "response")) && attr(terms, "response") == 1L) {
+    terms <- stats::delete.response(terms)
+  }
+
+  if (is.null(terms)) {
+    stop("The burgled fitted engine does not contain a usable `terms` object.")
+  }
+
+  attr(terms, ".Environment") <- baseenv()
+  terms
 }
 
 workflow_burgle_engine <- function(engine) {

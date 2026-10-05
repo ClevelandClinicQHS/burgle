@@ -30,7 +30,8 @@ burgle.xgb.Booster <- function(object, ...){
 
   metadata <- list()
   if ("as_booster" %in% names(formals(xgboost::xgb.load.raw))) {
-    object <- xgboost::xgb.Booster.complete(object, saveraw = FALSE)
+    complete <- getExportedValue("xgboost", "xgb.Booster.complete")
+    object <- complete(object, saveraw = FALSE)
     metadata <- object[intersect(c("feature_names", "params"), names(object))]
   } else {
     metadata <- attributes(object)[intersect(c("metadata", "params"),

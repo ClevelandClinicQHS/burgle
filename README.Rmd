@@ -83,6 +83,19 @@ marker) is smaller. Compression makes burgling slower and decompression adds
 work to each prediction. Existing uncompressed burgled objects still work.
 The `raw` field is an internal buffer, not necessarily directly loadable by
 `xgb.load.raw()`; use `predict()` on the burgled object.
+Illustrative `object.size()` measurements against the previous uncompressed
+burgled representation (depth 3; bytes, not sizes of the original fitted model):
+
+| Model | Rounds | Previous | Compressed | Reduction |
+| --- | ---: | ---: | ---: | ---: |
+| `mtcars` regression, XGBoost 1.7.6.1 | 5 | 7,096 | 2,928 | 58.7% |
+| `mtcars` regression, XGBoost 1.7.6.1 | 200 | 189,040 | 18,744 | 90.1% |
+| `iris` high-level classification, XGBoost 3.0.5.1 | 5 | 17,464 | 3,912 | 77.6% |
+| `iris` high-level classification, XGBoost 3.0.5.1 | 200 | 464,976 | 24,200 | 94.8% |
+
+These are examples, not guaranteed ratios. `saveRDS()` already compresses by
+default, so disk-space savings can differ. Prediction still reconstructs the
+full booster: stored-object savings do not imply equal peak-memory savings.
 Beyond compression and removing unused metadata, large further reductions are
 unlikely without dropping trees, reducing precision, or restricting supported
 prediction modes, which would compromise exact prediction parity.

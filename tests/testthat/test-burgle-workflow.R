@@ -21,7 +21,7 @@ test_that("burgle.workflow rejects formula preprocessors", {
   )
 })
 
-test_that("burgle.workflow compiles trained bs and ns steps into terms", {
+test_that("burgle.workflow compiles trained bs and ns steps for glm", {
   skip_if_not_installed("parsnip")
   skip_if_not_installed("recipes")
   skip_if_not_installed("workflows")
@@ -66,6 +66,57 @@ test_that("burgle.workflow compiles trained bs and ns steps into terms", {
     workflows::extract_fit_engine(wf),
     newdata = baked,
     type = "link"
+  )
+
+  actual <- predict(bfit, newdata = new_dat, type = "lp")
+
+  expect_equal(as.numeric(actual), as.numeric(expected), tolerance = 1e-7)
+})
+
+test_that("burgle.workflow compiles trained bs and ns steps for lm", {
+  skip_if_not_installed("parsnip")
+  skip_if_not_installed("recipes")
+  skip_if_not_installed("workflows")
+
+  set.seed(202)
+  dat <- data.frame(
+    y = stats::rnorm(80),
+    x1 = stats::runif(80, 0.2, 2),
+    x2 = stats::runif(80, 0.2, 2),
+    z = stats::rnorm(80)
+  )
+
+  wf <- workflows::workflow() |>
+    workflows::add_recipe(
+      recipes::recipe(y ~ x1 + x2 + z, data = dat) |>
+        recipes::step_ns(x1, deg_free = 3) |>
+        recipes::step_bs(x2, deg_free = 4, degree = 2)
+    ) |>
+    workflows::add_model(
+      parsnip::linear_reg() |>
+        parsnip::set_engine("lm")
+    ) |>
+    workflows::fit(data = dat)
+
+  bfit <- burgle(wf)
+  expect_s3_class(bfit, "burgle_lm")
+  expect_s3_class(bfit$terms, "terms")
+
+  new_dat <- data.frame(
+    y = 0,
+    x1 = seq(0.25, 1.75, length.out = 6),
+    x2 = seq(0.3, 1.8, length.out = 6),
+    z = seq(-1, 1, length.out = 6)
+  )
+
+  baked <- recipes::bake(
+    workflows::extract_recipe(wf, estimated = TRUE),
+    new_data = new_dat
+  )
+
+  expected <- stats::predict(
+    workflows::extract_fit_engine(wf),
+    newdata = baked
   )
 
   actual <- predict(bfit, newdata = new_dat, type = "lp")

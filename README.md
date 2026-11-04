@@ -201,6 +201,43 @@ predict(b_glm, head(iris), original = FALSE, se = TRUE, draws = 5, type = "respo
 #> [6,]    0    0    0    0    0
 ```
 
+## Tidymodels workflows with natural splines
+
+`burgle()` also accepts a fitted workflow. For recipes containing only
+`step_ns()`, the returned terms replace the baked columns (such as
+`log_hgt_ratio_ns_1`) with `splines::ns()` calls containing the **trained**
+`knots`, `Boundary.knots`, and `intercept`. Knots are not estimated again on
+new data.
+
+``` r
+rec <- recipes::recipe(mpg ~ disp + wt, data = mtcars) |>
+  recipes::step_ns(disp, deg_free = 4)
+fit <- workflows::workflow() |>
+  workflows::add_recipe(rec) |>
+  workflows::add_model(parsnip::linear_reg()) |>
+  parsnip::fit(data = mtcars)
+bfit <- burgle(fit)
+attr(bfit$terms, "term.labels")
+attr(bfit$terms, "variables")
+
+## Predict with raw predictors, not the baked *_ns_* columns.
+predict(bfit, newdata = head(mtcars), original = TRUE)
+
+## Refit with the original spline knots and boundaries.
+fixed_formula <- stats::update.formula(stats::formula(bfit$terms), mpg ~ .)
+refit <- lm(fixed_formula, data = mtcars)
+```
+
+Coefficients and their covariance matrix are aligned with the reconstructed
+terms; the workflow, recipe, and training data are not retained. The engine
+must have an existing `burgle()` method. Other recipe steps emit a warning but
+do not prevent burgling. Those transformations are not reconstructed: supply
+predictors on their processed scale where necessary, and do not assume these
+terms reproduce the full workflow (particularly if other steps modify spline
+columns). Skipped spline steps, offsets, and incomplete or interacting spline
+expansions currently produce an explicit error. Workflows without a recipe,
+or without spline steps, delegate to the engine method.
+
 ## Cox Proporiontal Hazards Model
 
 ``` r

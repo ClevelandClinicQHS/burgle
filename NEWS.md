@@ -1,3 +1,11 @@
+## Development version
+
+* Add `burgle.workflow()` for fitted tidymodels workflows. Trained `step_ns()`
+  expansions become explicit `splines::ns()` terms with fixed knots and
+  boundaries, usable for prediction and refitting without recalculating knots.
+  Other recipe steps warn and are not reconstructed. Partial or interacting
+  spline expansions are rejected.
+
 # Changes in version 0.1.2
 
 ## New features

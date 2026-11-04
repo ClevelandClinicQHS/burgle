@@ -21,7 +21,10 @@ Suggests:
     testthat (>= 3.0.0),
     prodlim,
     randomForestSRC,
-    rms
+    rms,
+    workflows,
+    recipes,
+    parsnip
 Depends: 
     R (>= 4.0.0)
 Authors@R: c(
